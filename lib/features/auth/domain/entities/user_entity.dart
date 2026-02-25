@@ -9,6 +9,7 @@ class UserEntity extends Equatable {
   final UserRole role;
   final String? profileImageUrl;
   final String? phoneNumber;
+  final bool isBlocked;
 
   const UserEntity({
     required this.id,
@@ -17,6 +18,7 @@ class UserEntity extends Equatable {
     required this.role,
     this.profileImageUrl,
     this.phoneNumber,
+    this.isBlocked = false,
   });
 
   @override
@@ -27,5 +29,6 @@ class UserEntity extends Equatable {
     role,
     profileImageUrl,
     phoneNumber,
+    isBlocked,
   ];
 }

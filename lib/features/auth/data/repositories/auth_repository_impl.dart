@@ -74,6 +74,10 @@ class AuthRepositoryImpl implements AuthRepository {
     }
   }
 
+  @override
+  Stream<bool> watchBlockedStatus() =>
+      remoteDataSource.watchUserBlockedStatus();
+
   String _mapFirebaseErrorMessage(FirebaseAuthException e) {
     switch (e.code) {
       case 'user-not-found':

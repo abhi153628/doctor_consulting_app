@@ -238,15 +238,19 @@ class _DoctorDetailsPageState extends State<DoctorDetailsPage> {
 
                     if (state is BookingsLoaded) {
                       final now = DateTime.now();
-                      alreadyBooked = state.bookings.any(
-                        (b) =>
-                            b.doctorId == _doctor.id &&
-                            b.startTime.year == now.year &&
-                            b.startTime.month == now.month &&
-                            b.startTime.day == now.day &&
-                            (b.status == BookingStatus.pending ||
-                                b.status == BookingStatus.accepted),
-                      );
+                      final todayBookings = state.bookings
+                          .where(
+                            (b) =>
+                                b.doctorId == _doctor.id &&
+                                b.startTime.year == now.year &&
+                                b.startTime.month == now.month &&
+                                b.startTime.day == now.day &&
+                                (b.status == BookingStatus.pending ||
+                                    b.status == BookingStatus.accepted),
+                          )
+                          .toList();
+                      // Allow up to 2 appointments per day per doctor
+                      alreadyBooked = todayBookings.length >= 2;
                     }
 
                     return AbsorbPointer(
@@ -351,26 +355,14 @@ class _DoctorDetailsPageState extends State<DoctorDetailsPage> {
                                         DateTime appointmentStart =
                                             DateTime.now();
                                         try {
-                                          final String slotString =
-                                              _selectedSlot!.toUpperCase();
-                                          final bool isPM = slotString.contains(
-                                            'PM',
+                                          // SLOTS ARE ALWAYS HH:mm (24h) — directly parse
+                                          final parts = _selectedSlot!.split(
+                                            ':',
                                           );
-                                          final bool isAM = slotString.contains(
-                                            'AM',
+                                          final int hour = int.parse(parts[0]);
+                                          final int minute = int.parse(
+                                            parts[1],
                                           );
-
-                                          final String timePart = slotString
-                                              .replaceAll('AM', '')
-                                              .replaceAll('PM', '')
-                                              .trim();
-                                          final parts = timePart.split(':');
-
-                                          int hour = int.parse(parts[0]);
-                                          int minute = int.parse(parts[1]);
-
-                                          if (isPM && hour < 12) hour += 12;
-                                          if (isAM && hour == 12) hour = 0;
 
                                           final now = DateTime.now();
                                           appointmentStart = DateTime(
@@ -381,6 +373,7 @@ class _DoctorDetailsPageState extends State<DoctorDetailsPage> {
                                             minute,
                                           );
 
+                                          // If this slot time is already past today, book for tomorrow
                                           if (appointmentStart.isBefore(now)) {
                                             appointmentStart = appointmentStart
                                                 .add(const Duration(days: 1));
@@ -392,7 +385,7 @@ class _DoctorDetailsPageState extends State<DoctorDetailsPage> {
                                         final booking = BookingEntity(
                                           id: '',
                                           doctorId: _doctor.id,
-                                          userId: user.id,
+                                          userId: user.id, doctorName: _doctor.name, patientName: user.name,
                                           startTime: appointmentStart,
                                           endTime: appointmentStart.add(
                                             const Duration(minutes: 30),
@@ -490,7 +483,28 @@ class _DoctorDetailsPageState extends State<DoctorDetailsPage> {
             Text('Availability Update'),
           ],
         ),
-        content: Text(message),
+        content: Builder(
+          builder: (context) {
+            String friendlyMessage;
+            if (message.contains('SLOT_NOT_FOUND') ||
+                message.contains('mismatch') ||
+                message.contains('not available')) {
+              friendlyMessage =
+                  'This time slot is not available. The doctor may have removed it. Please go back and refresh to see the latest available slots.';
+            } else if (message.contains('MAX_BOOKINGS') ||
+                message.contains('already have')) {
+              friendlyMessage =
+                  'You have reached the maximum of 2 appointments with this doctor today. Please book for another day or choose a different doctor.';
+            } else if (message.contains('Doctor not found')) {
+              friendlyMessage =
+                  'Could not find the doctor\'s profile. Please go back and try again.';
+            } else {
+              friendlyMessage =
+                  'Something went wrong while booking. Please check your internet connection and try again.';
+            }
+            return Text(friendlyMessage);
+          },
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),

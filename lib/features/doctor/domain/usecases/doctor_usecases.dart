@@ -7,7 +7,7 @@ class GetDoctorsUseCase {
   final DoctorRepository repository;
   GetDoctorsUseCase(this.repository);
 
-  Future<Either<Failure, List<DoctorEntity>>> call({String? specialization}) {
+  Stream<List<DoctorEntity>> call({String? specialization}) {
     return repository.getDoctors(specialization: specialization);
   }
 }

@@ -32,7 +32,9 @@ class ChatRepositoryImpl implements ChatRepository {
         MessageModel(
           id: message.id,
           senderId: message.senderId,
+          senderName: message.senderName,
           receiverId: message.receiverId,
+          receiverName: message.receiverName,
           content: message.content,
           timestamp: message.timestamp,
           isRead: message.isRead,

@@ -12,6 +12,8 @@ class BookingEntity extends Equatable {
   final double totalAmount;
   final double commission;
   final double doctorEarning;
+  final String doctorName;
+  final String patientName;
   final BookingStatus status;
 
   const BookingEntity({
@@ -24,6 +26,8 @@ class BookingEntity extends Equatable {
     required this.totalAmount,
     required this.commission,
     required this.doctorEarning,
+    required this.doctorName,
+    required this.patientName,
     this.status = BookingStatus.pending,
   });
 
@@ -38,6 +42,8 @@ class BookingEntity extends Equatable {
     totalAmount,
     commission,
     doctorEarning,
+    doctorName,
+    patientName,
     status,
   ];
 }

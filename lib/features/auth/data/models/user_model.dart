@@ -2,6 +2,7 @@ import 'package:doctor_booking_app/features/auth/domain/entities/user_entity.dar
 
 class UserModel extends UserEntity {
   final bool? isApproved;
+  final bool isBlocked;
 
   const UserModel({
     required super.id,
@@ -11,6 +12,7 @@ class UserModel extends UserEntity {
     super.profileImageUrl,
     super.phoneNumber,
     this.isApproved,
+    this.isBlocked = false,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
@@ -25,6 +27,7 @@ class UserModel extends UserEntity {
       profileImageUrl: json['profileImageUrl'],
       phoneNumber: json['phoneNumber'],
       isApproved: json['isApproved'],
+      isBlocked: json['isBlocked'] ?? false,
     );
   }
 
@@ -36,6 +39,7 @@ class UserModel extends UserEntity {
       'role': role.name,
       'profileImageUrl': profileImageUrl,
       'phoneNumber': phoneNumber,
+      'isBlocked': isBlocked,
     };
   }
 }

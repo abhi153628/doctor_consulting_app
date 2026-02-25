@@ -25,6 +25,8 @@ class BookingRepositoryImpl implements BookingRepository {
         totalAmount: booking.totalAmount,
         commission: booking.commission,
         doctorEarning: booking.doctorEarning,
+        doctorName: booking.doctorName,
+        patientName: booking.patientName,
         status: booking.status,
       );
       final result = await remoteDataSource.bookAppointment(bookingModel);
@@ -35,27 +37,17 @@ class BookingRepositoryImpl implements BookingRepository {
   }
 
   @override
-  Future<Either<Failure, List<BookingEntity>>> getPatientBookings(
-    String userId,
-  ) async {
-    try {
-      final bookings = await remoteDataSource.getPatientBookings(userId);
-      return Right(bookings);
-    } catch (e) {
-      return Left(ServerFailure(e.toString()));
-    }
+  Stream<List<BookingEntity>> getPatientBookings(String userId) {
+    return remoteDataSource
+        .getPatientBookings(userId)
+        .map((list) => list.cast<BookingEntity>().toList());
   }
 
   @override
-  Future<Either<Failure, List<BookingEntity>>> getDoctorBookings(
-    String doctorId,
-  ) async {
-    try {
-      final bookings = await remoteDataSource.getDoctorBookings(doctorId);
-      return Right(bookings);
-    } catch (e) {
-      return Left(ServerFailure(e.toString()));
-    }
+  Stream<List<BookingEntity>> getDoctorBookings(String doctorId) {
+    return remoteDataSource
+        .getDoctorBookings(doctorId)
+        .map((list) => list.cast<BookingEntity>().toList());
   }
 
   @override
@@ -79,5 +71,12 @@ class BookingRepositoryImpl implements BookingRepository {
     } catch (e) {
       return Left(ServerFailure(e.toString()));
     }
+  }
+
+  @override
+  Stream<List<BookingEntity>> getAllBookingsStream() {
+    return remoteDataSource.getAllBookingsStream().map(
+      (list) => list.cast<BookingEntity>().toList(),
+    );
   }
 }

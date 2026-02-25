@@ -1,17 +1,56 @@
 ﻿Analyzing doctor_booking_app...                                 
 
-warning - Unused import: 'package:flutter_bloc/flutter_bloc.dart' - lib\features\admin\presentation\pages\admin_dashboard.dart:2:8 - unused_import
-warning - Unused import: 'package:doctor_booking_app/core/theme/app_theme.dart' - lib\features\auth\presentation\pages\register_page.dart:8:8 - unused_import
-   info - 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre - lib\features\auth\presentation\pages\register_page.dart:90:23 - deprecated_member_use
-   info - 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre - lib\features\auth\presentation\pages\register_page.dart:91:23 - deprecated_member_use
-   info - 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre - lib\features\auth\presentation\pages\register_page.dart:98:23 - deprecated_member_use
-   info - 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre - lib\features\auth\presentation\pages\register_page.dart:99:23 - deprecated_member_use
-warning - Unused import: '../../domain/entities/chat_entity.dart' - lib\features\chat\presentation\pages\chat_page.dart:4:8 - unused_import
-warning - Unnecessary cast - lib\features\doctor\data\datasources\doctor_remote_data_source.dart:59:44 - unnecessary_cast
+   info - Use the null-aware marker '?' rather than a null check via an 'if' - lib\core\services\notification_service.dart:109:7 - use_null_aware_elements
+warning - Unused import: 'package:doctor_booking_app/core/theme/app_theme.dart' - lib\features\auth\presentation\pages\register_page.dart:6:8 - unused_import
+   info - 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre - lib\features\auth\presentation\pages\register_page.dart:86:23 - deprecated_member_use
+   info - 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre - lib\features\auth\presentation\pages\register_page.dart:87:23 - deprecated_member_use
+   info - 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre - lib\features\auth\presentation\pages\register_page.dart:95:23 - deprecated_member_use
+   info - 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre - lib\features\auth\presentation\pages\register_page.dart:96:23 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\booking\presentation\pages\patient_bookings_page.dart:144:33 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\booking\presentation\pages\patient_bookings_page.dart:160:58 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\booking\presentation\pages\patient_bookings_page.dart:292:22 - deprecated_member_use
+   info - 'onPopInvoked' is deprecated and shouldn't be used. Use onPopInvokedWithResult instead. This feature was deprecated after v3.22.0-12.0.pre - lib\features\call\presentation\pages\call_page.dart:58:7 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\call\presentation\pages\call_page.dart:149:37 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\call\presentation\pages\call_page.dart:274:37 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\call\presentation\pages\call_page.dart:318:35 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\call\presentation\pages\call_page.dart:369:35 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\call\presentation\pages\call_page.dart:379:32 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\call\presentation\pages\call_page.dart:380:34 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\call\presentation\pages\call_page.dart:418:32 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\call\presentation\pages\call_page.dart:419:34 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\call\presentation\pages\call_page.dart:429:45 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\call\presentation\widgets\incoming_call_overlay.dart:57:56 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\call\presentation\widgets\incoming_call_overlay.dart:134:32 - deprecated_member_use
+   info - The type of the right operand ('String') isn't a subtype or a supertype of the left operand ('UserRole') - lib\features\chat\presentation\pages\chat_list_page.dart:72:48 - unrelated_type_equality_checks
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\chat\presentation\pages\chat_list_page.dart:103:48 - deprecated_member_use
+   info - The type of the right operand ('String') isn't a subtype or a supertype of the left operand ('UserRole') - lib\features\chat\presentation\pages\chat_list_page.dart:200:104 - unrelated_type_equality_checks
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\chat\presentation\pages\chat_page.dart:238:33 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\chat\presentation\pages\chat_page.dart:271:35 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\chat\presentation\pages\chat_page.dart:326:33 - deprecated_member_use
+warning - Unnecessary cast - lib\features\doctor\data\datasources\doctor_remote_data_source.dart:77:44 - unnecessary_cast
 warning - Unused import: 'package:equatable/equatable.dart' - lib\features\doctor\domain\entities\doctor_entity.dart:2:8 - unused_import
-   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\doctor\presentation\pages\doctor_dashboard.dart:46:44 - deprecated_member_use
-   info - 'activeColor' is deprecated and shouldn't be used. Use activeThumbColor instead. This feature was deprecated after v3.31.0-2.0.pre - lib\features\doctor\presentation\pages\doctor_dashboard.dart:78:23 - deprecated_member_use
-warning - Unused import: 'package:intl/intl.dart' - lib\features\doctor\presentation\pages\doctor_details_page.dart:8:8 - unused_import
-   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\doctor\presentation\pages\doctor_details_page.dart:36:58 - deprecated_member_use
-   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\doctor\presentation\pages\patient_dashboard.dart:57:62 - deprecated_member_use
+   info - 'activeColor' is deprecated and shouldn't be used. Use activeThumbColor instead. This feature was deprecated after v3.31.0-2.0.pre - lib\features\doctor\presentation\pages\doctor_dashboard.dart:221:15 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\doctor\presentation\pages\doctor_dashboard.dart:451:22 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\doctor\presentation\pages\doctor_dashboard.dart:453:41 - deprecated_member_use
+warning - Unused import: 'package:intl/intl.dart' - lib\features\doctor\presentation\pages\doctor_details_page.dart:12:8 - unused_import
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\doctor\presentation\pages\doctor_details_page.dart:202:46 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\doctor\presentation\pages\doctor_details_page.dart:549:61 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\doctor\presentation\pages\doctor_details_page.dart:580:38 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\doctor\presentation\pages\doctor_details_page.dart:582:57 - deprecated_member_use
 
+flutter : 37 issues 
+found. (ran in 3.9s)
+At line:1 char:1
++ flutter analyze > 
+analysis.txt 2>&1
++ ~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~
+    + CategoryInfo       
+       : NotSpecified:   
+  (37 issues found. (r   
+ an in 3.9s):String)     
+[], RemoteException
+    + FullyQualifiedErro 
+   rId : NativeCommandE  
+  rror
+ 

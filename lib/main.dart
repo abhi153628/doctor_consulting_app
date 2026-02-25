@@ -15,6 +15,7 @@ import 'package:doctor_booking_app/features/admin/presentation/pages/admin_dashb
 import 'package:doctor_booking_app/features/auth/presentation/pages/approval_pending_page.dart';
 import 'package:doctor_booking_app/features/auth/domain/entities/user_entity.dart';
 import 'package:doctor_booking_app/features/auth/data/models/user_model.dart';
+import 'package:doctor_booking_app/features/doctor/domain/entities/doctor_entity.dart';
 import 'package:doctor_booking_app/core/theme/app_theme.dart';
 import 'package:doctor_booking_app/core/services/notification_service.dart';
 
@@ -51,9 +52,15 @@ class MyApp extends StatelessWidget {
             if (state is AuthAuthenticated) {
               final user = state.user;
               if (user.role == UserRole.doctor) {
-                final isApproved = (user is UserModel)
-                    ? (user.isApproved ?? false)
-                    : false;
+                // Determine approval status regardless of concrete type
+                bool isApproved = false;
+                if (user is UserModel) {
+                  isApproved = user.isApproved ?? false;
+                } else if (user is DoctorEntity) {
+                  // DoctorEntity is the parent of DoctorModel
+                  isApproved = (user as dynamic).isApproved ?? false;
+                }
+
                 return isApproved
                     ? DoctorDashboard(user: user)
                     : const ApprovalPendingPage();

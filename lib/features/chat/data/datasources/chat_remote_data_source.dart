@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:doctor_booking_app/features/chat/data/models/chat_model.dart';
 import 'package:doctor_booking_app/features/chat/data/models/message_model.dart';
+import '../../../../core/services/notification_service.dart';
 
 abstract class ChatRemoteDataSource {
   Stream<List<ChatModel>> getChats(String userId);
@@ -52,19 +53,38 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
 
     final doc = await chatDoc.get();
     if (!doc.exists) {
+      // First message: store BOTH participant names so chat list shows correct names
       batch.set(chatDoc, {
         'id': chatId,
         'participantIds': [message.senderId, message.receiverId],
+        'participantNames': {
+          message.senderId: message.senderName,
+          message.receiverId: message.receiverName,
+        },
         'lastMessage': message.toJson(),
       });
     } else {
-      batch.update(chatDoc, {'lastMessage': message.toJson()});
+      // On each message: update both names in case they changed
+      batch.update(chatDoc, {
+        'lastMessage': message.toJson(),
+        'participantNames.${message.senderId}': message.senderName,
+        if (message.receiverName.isNotEmpty)
+          'participantNames.${message.receiverId}': message.receiverName,
+      });
     }
 
     final messageDoc = chatDoc.collection('messages').doc(message.id);
     batch.set(messageDoc, message.toJson());
 
     await batch.commit();
+
+    // Trigger notification to Receiver
+    NotificationService.sendNotification(
+      receiverIds: [message.receiverId],
+      title: 'New Message from ${message.senderName}',
+      content: message.content,
+      data: {'type': 'new_message', 'chatId': chatId},
+    );
   }
 
   @override

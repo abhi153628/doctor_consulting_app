@@ -20,6 +20,9 @@ abstract class AuthRepository {
   Future<Either<Failure, void>> logout();
 
   Future<Either<Failure, UserEntity>> getCurrentUser();
+
+  /// Real-time stream — emits true if admin blocks this user mid-session.
+  Stream<bool> watchBlockedStatus();
 }
 
 // Simple Either class to avoid dartz dependency if not strictly needed,

@@ -5,10 +5,10 @@ class DoctorEntity extends UserEntity {
   final String specialization;
   final bool isApproved;
   final bool isOnline;
+  final bool isBlocked;
   final List<String> availableTimeSlots;
   final double rating;
   final int totalConsultations;
-  final String? phoneNumber;
   final double consultationFee;
 
   const DoctorEntity({
@@ -17,13 +17,14 @@ class DoctorEntity extends UserEntity {
     required super.name,
     required super.role,
     super.profileImageUrl,
+    super.phoneNumber,
     required this.specialization,
     this.isApproved = false,
     this.isOnline = false,
+    this.isBlocked = false,
     this.availableTimeSlots = const [],
     this.rating = 0.0,
     this.totalConsultations = 0,
-    this.phoneNumber,
     this.consultationFee = 500.0,
   });
 
@@ -33,10 +34,10 @@ class DoctorEntity extends UserEntity {
     specialization,
     isApproved,
     isOnline,
+    isBlocked,
     availableTimeSlots,
     rating,
     totalConsultations,
-    phoneNumber,
     consultationFee,
   ];
 }

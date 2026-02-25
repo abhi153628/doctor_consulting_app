@@ -52,16 +52,7 @@ class _ChatPageState extends State<ChatPage> {
     return Scaffold(
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(widget.receiverName, style: const TextStyle(fontSize: 18)),
-            const Text(
-              'Online',
-              style: TextStyle(fontSize: 12, color: Colors.green),
-            ),
-          ],
-        ),
+        title: Text(widget.receiverName),
         actions: [
           BlocListener<CallBloc, CallState>(
             listener: (context, state) {
@@ -377,7 +368,9 @@ class _ChatPageState extends State<ChatPage> {
                         final message = MessageEntity(
                           id: const Uuid().v4(),
                           senderId: currentUser.id,
+                          senderName: currentUser.name,
                           receiverId: receiverId,
+                          receiverName: widget.receiverName,
                           content: _controller.text.trim(),
                           timestamp: DateTime.now(),
                         );

@@ -22,10 +22,54 @@ class ManageSlotsPage extends StatefulWidget {
 class _ManageSlotsPageState extends State<ManageSlotsPage> {
   late List<String> _slots;
 
+  /// Normalize any slot to "HH:mm" (24h). Handles:
+  ///   "HH:mm"     → returned as-is
+  ///   "H:mm AM"   → converted to 24h
+  ///   "H:mm PM"   → converted to 24h
+  ///   "H AM" / "H PM" (no minutes) → converted to 24h with :00
+  String _normalizeSlot(String s) {
+    try {
+      final upper = s.toUpperCase().trim();
+      final isPM = upper.endsWith('PM');
+      final isAM = upper.endsWith('AM');
+      final cleaned = upper.replaceAll('AM', '').replaceAll('PM', '').trim();
+
+      // Support both "H:mm" and plain "H" (no minutes)
+      int hour;
+      int minute = 0;
+      if (cleaned.contains(':')) {
+        final parts = cleaned.split(':');
+        hour = int.parse(parts[0].trim());
+        minute = int.parse(parts[1].trim());
+      } else {
+        hour = int.parse(cleaned);
+      }
+
+      if (isPM && hour < 12) hour += 12;
+      if (isAM && hour == 12) hour = 0;
+
+      return '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
+    } catch (_) {
+      return s; // Return as-is if we can't parse; won't crash
+    }
+  }
+
+  /// Parse a normalized "HH:mm" slot to minutes for sorting
+  int _slotToMinutes(String s) {
+    try {
+      final normalized = _normalizeSlot(s);
+      final parts = normalized.split(':');
+      return int.parse(parts[0]) * 60 + int.parse(parts[1]);
+    } catch (_) {
+      return 0;
+    }
+  }
+
   @override
   void initState() {
     super.initState();
-    _slots = List.from(widget.currentSlots);
+    // Normalize all existing slots so we never crash on legacy AM/PM data
+    _slots = widget.currentSlots.map(_normalizeSlot).toList();
   }
 
   Future<void> _selectTime() async {
@@ -35,7 +79,7 @@ class _ManageSlotsPageState extends State<ManageSlotsPage> {
     );
     if (picked != null) {
       setState(() {
-        // Store in a standard HH:mm format for reliable parsing
+        // Store in strict HH:mm (24h) format
         final String hour = picked.hour.toString().padLeft(2, '0');
         final String minute = picked.minute.toString().padLeft(2, '0');
         final standardTime = '$hour:$minute';
@@ -43,14 +87,8 @@ class _ManageSlotsPageState extends State<ManageSlotsPage> {
         if (!_slots.contains(standardTime)) {
           _slots.add(standardTime);
 
-          // Sort chronologically
-          _slots.sort((a, b) {
-            final aParts = a.split(':');
-            final bParts = b.split(':');
-            final aValue = int.parse(aParts[0]) * 60 + int.parse(aParts[1]);
-            final bValue = int.parse(bParts[0]) * 60 + int.parse(bParts[1]);
-            return aValue.compareTo(bValue);
-          });
+          // Sort chronologically using robust minute-value comparator
+          _slots.sort((a, b) => _slotToMinutes(a).compareTo(_slotToMinutes(b)));
 
           CustomSnackBar.show(
             context,

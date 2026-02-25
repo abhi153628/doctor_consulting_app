@@ -41,7 +41,7 @@ dependencies:
   firebase_core: ^4.4.0
   firebase_auth: ^6.1.4
   cloud_firestore: ^6.1.2
-  firebase_messaging: ^16.1.1
+  onesignal_flutter: ^5.2.2
 
   # Video/Audio Call (Agora)
   agora_rtc_engine: ^6.4.2
@@ -55,6 +55,7 @@ dependencies:
   dartz: ^0.10.1
   flutter_local_notifications: ^18.0.1
   url_launcher: ^6.3.2
+  http: ^1.2.2
   bloc_concurrency: ^0.3.0
 
 dev_dependencies:

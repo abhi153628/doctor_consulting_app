@@ -1,13 +1,16 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import '../models/booking_model.dart';
 import '../../domain/entities/booking_entity.dart';
+import '../../../../core/services/notification_service.dart';
 
 abstract class BookingRemoteDataSource {
   Future<BookingModel> bookAppointment(BookingModel booking);
-  Future<List<BookingModel>> getPatientBookings(String userId);
-  Future<List<BookingModel>> getDoctorBookings(String doctorId);
+  Stream<List<BookingModel>> getPatientBookings(String userId);
+  Stream<List<BookingModel>> getDoctorBookings(String doctorId);
   Future<void> updateBookingStatus(String bookingId, BookingStatus status);
   Future<List<BookingModel>> getAllBookings();
+  Stream<List<BookingModel>> getAllBookingsStream();
 }
 
 class BookingRemoteDataSourceImpl implements BookingRemoteDataSource {
@@ -15,47 +18,59 @@ class BookingRemoteDataSourceImpl implements BookingRemoteDataSource {
 
   BookingRemoteDataSourceImpl({required this.firestore});
 
+  String _slotKey(DateTime dt) {
+    return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+  }
+
+  String _formatTime12h(DateTime dt) {
+    final hour = dt.hour;
+    final minute = dt.minute.toString().padLeft(2, '0');
+    final period = hour >= 12 ? 'PM' : 'AM';
+    final hour12 = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour);
+    return '$hour12:$minute $period';
+  }
+
   @override
   Future<BookingModel> bookAppointment(BookingModel booking) async {
+    final String targetSlotKey = _slotKey(booking.startTime);
+    debugPrint('=== BOOKING ATTEMPT ===');
+    debugPrint('Looking for slot: $targetSlotKey');
+    debugPrint('Doctor ID: ${booking.doctorId}');
+    debugPrint('User ID: ${booking.userId}');
+
     return await firestore.runTransaction((transaction) async {
       final doctorRef = firestore.collection('doctors').doc(booking.doctorId);
       final bookingRef = firestore.collection('bookings').doc();
 
       final doctorDoc = await transaction.get(doctorRef);
       if (!doctorDoc.exists) {
-        throw Exception('Doctor not found');
+        throw Exception('Doctor not found. Please go back and try again.');
       }
 
-      final List<String> slots = List<String>.from(
+      final List<String> rawSlots = List<String>.from(
         doctorDoc.data()?['availableTimeSlots'] ?? [],
       );
+      debugPrint('Doctor has slots: $rawSlots');
 
-      // We need to find the specific slot to remove.
-      // For now, we match by the formatted time string if that's what's stored.
-      // In a more robust system, we would match by exact DateTime.
+      String? matchedSlot;
+      for (final s in rawSlots) {
+        final normalized = s
+            .toUpperCase()
+            .replaceAll(' AM', '')
+            .replaceAll(' PM', '')
+            .trim();
+        if (normalized == targetSlotKey) {
+          matchedSlot = s;
+          break;
+        }
+      }
 
-      // Attempting to remove the slot.
-      // Note: This logic assumes slots are stored as "HH:mm" strings or similar.
-      // If the exact string isn't found, we'll still proceed with the booking
-      // but log/warn if this were a production system.
-      // For this implementation, we'll expect the string to match exactly as picked in the UI.
+      debugPrint('Matched slot: $matchedSlot');
 
-      // In the current UI, slot is just a String.
-      // We'll pass the specific slot string to remove via a custom field or infer it.
-      // Let's assume for now the startTime matches the slot string format (e.g. 10:30 AM).
-      // Since startTime is parsed from the slot, we should ideally pass the slot string.
+      if (matchedSlot == null) {
+        throw Exception('SLOT_NOT_FOUND:$targetSlotKey:${rawSlots.join(",")}');
+      }
 
-      // Let's refine the model to include the original slot string if needed,
-      // or just try to find a matching one.
-
-      // Optimization: remove matching slot from the list
-      // In a real app, we'd use a more precise slot ID.
-
-      // For now, let's keep it simple: we remove the first slot that roughly matches the hour/minute.
-      // Actually, let's just use the startTime to find a match.
-
-      // Re-reading common slot formats: "10:30 AM"
-      // [NEW] Date-specific booking check in backend for safety
       final startOfDay = DateTime(
         booking.startTime.year,
         booking.startTime.month,
@@ -63,34 +78,61 @@ class BookingRemoteDataSourceImpl implements BookingRemoteDataSource {
       );
       final endOfDay = startOfDay.add(const Duration(days: 1));
 
-      final existingBookings = await firestore
+      final existingSnap = await firestore
           .collection('bookings')
           .where('userId', isEqualTo: booking.userId)
           .where('doctorId', isEqualTo: booking.doctorId)
           .where('status', whereIn: ['pending', 'accepted'])
-          .where('startTime', isGreaterThanOrEqualTo: startOfDay)
-          .where('startTime', isLessThan: endOfDay)
           .get();
 
-      if (existingBookings.docs.isNotEmpty) {
+      final todayBookings = existingSnap.docs.where((doc) {
+        final raw = doc.data()['startTime'];
+        DateTime? dt;
+        if (raw is Timestamp) {
+          dt = raw.toDate();
+        } else if (raw is String) {
+          dt = DateTime.tryParse(raw);
+        }
+        if (dt == null) return false;
+        return dt.isAfter(startOfDay) && dt.isBefore(endOfDay);
+      }).toList();
+
+      debugPrint('Existing bookings today: ${todayBookings.length}');
+
+      if (todayBookings.length >= 2) {
         throw Exception(
-          'You already have an appointment with this doctor today.',
+          'MAX_BOOKINGS:You already have 2 appointments with this doctor today.',
         );
       }
 
-      final String standardSlot = _formatToStandardSlot(booking.startTime);
+      final updatedSlots = List<String>.from(rawSlots)..remove(matchedSlot);
+      transaction.update(doctorRef, {'availableTimeSlots': updatedSlots});
 
-      if (!slots.contains(standardSlot)) {
-        throw Exception(
-          'Slot mismatch: Looking for "$standardSlot", but doctor has ${slots.isEmpty ? "NO SLOTS" : "only: " + slots.join(", ")}. Please refresh.',
-        );
-      }
+      final data = {
+        'id': bookingRef.id,
+        'doctorId': booking.doctorId,
+        'userId': booking.userId,
+        'doctorName': booking.doctorName,
+        'patientName': booking.patientName,
+        'startTime': Timestamp.fromDate(booking.startTime),
+        'endTime': Timestamp.fromDate(booking.endTime),
+        'durationMinutes': booking.durationMinutes,
+        'totalAmount': booking.totalAmount,
+        'commission': booking.commission,
+        'doctorEarning': booking.doctorEarning,
+        'status': booking.status.name,
+      };
+      transaction.set(bookingRef, data);
 
-      slots.remove(standardSlot);
+      NotificationService.sendNotification(
+        receiverIds: [booking.doctorId],
+        title: 'New Appointment Booking!',
+        content:
+            '${booking.patientName} has booked a slot for ${_formatTime12h(booking.startTime)}',
+        data: {'type': 'new_booking', 'bookingId': bookingRef.id},
+      );
 
-      transaction.update(doctorRef, {'availableTimeSlots': slots});
-
-      final bookingWithId = BookingModel(
+      return BookingModel(
         id: bookingRef.id,
         doctorId: booking.doctorId,
         userId: booking.userId,
@@ -100,41 +142,37 @@ class BookingRemoteDataSourceImpl implements BookingRemoteDataSource {
         totalAmount: booking.totalAmount,
         commission: booking.commission,
         doctorEarning: booking.doctorEarning,
+        doctorName: booking.doctorName,
+        patientName: booking.patientName,
         status: booking.status,
       );
-
-      transaction.set(bookingRef, bookingWithId.toJson());
-
-      return bookingWithId;
     });
   }
 
-  String _formatToStandardSlot(DateTime dt) {
-    final String hour = dt.hour.toString().padLeft(2, '0');
-    final String minute = dt.minute.toString().padLeft(2, '0');
-    return "$hour:$minute";
-  }
-
   @override
-  Future<List<BookingModel>> getPatientBookings(String userId) async {
-    final snapshot = await firestore
+  Stream<List<BookingModel>> getPatientBookings(String userId) {
+    return firestore
         .collection('bookings')
         .where('userId', isEqualTo: userId)
-        .get();
-    return snapshot.docs
-        .map((doc) => BookingModel.fromJson(doc.data()))
-        .toList();
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => BookingModel.fromJson(doc.data()))
+              .toList(),
+        );
   }
 
   @override
-  Future<List<BookingModel>> getDoctorBookings(String doctorId) async {
-    final snapshot = await firestore
+  Stream<List<BookingModel>> getDoctorBookings(String doctorId) {
+    return firestore
         .collection('bookings')
         .where('doctorId', isEqualTo: doctorId)
-        .get();
-    return snapshot.docs
-        .map((doc) => BookingModel.fromJson(doc.data()))
-        .toList();
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => BookingModel.fromJson(doc.data()))
+              .toList(),
+        );
   }
 
   @override
@@ -142,9 +180,34 @@ class BookingRemoteDataSourceImpl implements BookingRemoteDataSource {
     String bookingId,
     BookingStatus status,
   ) async {
-    await firestore.collection('bookings').doc(bookingId).update({
-      'status': status.name,
-    });
+    final bookingDoc = await firestore
+        .collection('bookings')
+        .doc(bookingId)
+        .get();
+    if (!bookingDoc.exists) return;
+
+    final bookingData = bookingDoc.data();
+    if (bookingData == null) return;
+
+    final Map<String, dynamic> updates = {'status': status.name};
+
+    if (status == BookingStatus.accepted) {
+      updates['totalAmount'] = 100.0;
+      updates['commission'] = 20.0;
+      updates['doctorEarning'] = 80.0;
+    }
+
+    await firestore.collection('bookings').doc(bookingId).update(updates);
+
+    if (status == BookingStatus.accepted) {
+      NotificationService.sendNotification(
+        receiverIds: [bookingData['userId']],
+        title: 'Booking Confirmed!',
+        content:
+            'Dr. ${bookingData['doctorName']} has accepted your booking request.',
+        data: {'type': 'booking_accepted', 'bookingId': bookingId},
+      );
+    }
   }
 
   @override
@@ -153,5 +216,18 @@ class BookingRemoteDataSourceImpl implements BookingRemoteDataSource {
     return snapshot.docs
         .map((doc) => BookingModel.fromJson(doc.data()))
         .toList();
+  }
+
+  /// Real-time stream of ALL bookings — used by admin to monitor all activity.
+  @override
+  Stream<List<BookingModel>> getAllBookingsStream() {
+    return firestore.collection('bookings').snapshots().map((snapshot) {
+      final list = snapshot.docs
+          .map((doc) => BookingModel.fromJson(doc.data()))
+          .toList();
+      // Sort client-side — newest first (avoids Firestore composite index requirement)
+      list.sort((a, b) => b.startTime.compareTo(a.startTime));
+      return list;
+    });
   }
 }

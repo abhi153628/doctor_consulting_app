@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:doctor_booking_app/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:doctor_booking_app/features/chat/presentation/bloc/chat_bloc.dart';
+import 'package:doctor_booking_app/features/auth/domain/entities/user_entity.dart';
 import 'package:doctor_booking_app/features/chat/presentation/pages/chat_page.dart';
 import 'package:doctor_booking_app/features/chat/domain/entities/chat_entity.dart';
 import 'package:intl/intl.dart';
@@ -69,8 +70,23 @@ class _ChatListPageState extends State<ChatListPage> {
 
     // In a professional app, we'd have participant names in the chat doc.
     // For now, we'll infer based on the role.
-    final bool isUserDoctor = currentUser.role == 'doctor';
-    final receiverName = isUserDoctor ? 'Patient' : 'Doctor';
+    final bool isUserDoctor = currentUser.role == UserRole.doctor;
+
+    // Get the other participant's name
+    final otherParticipantId = chat.participantIds.firstWhere(
+      (id) => id != currentUser.id,
+      orElse: () => '',
+    );
+
+    String? resolvedName = chat.participantNames[otherParticipantId];
+
+    // Fallback: If we are the receiver of the last message,
+    // we can get the other person's name from that message.
+    if (resolvedName == null && lastMessage.senderId == otherParticipantId) {
+      resolvedName = lastMessage.senderName;
+    }
+
+    final receiverName = resolvedName ?? (isUserDoctor ? 'Patient' : 'Doctor');
 
     return ListTile(
       onTap: () {
@@ -182,7 +198,7 @@ class _ChatListPageState extends State<ChatListPage> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Keep in touch with your ${(context.read<AuthBloc>().state as AuthAuthenticated).user.role == 'doctor' ? 'patients' : 'doctors'}',
+            'Keep in touch with your ${(context.read<AuthBloc>().state as AuthAuthenticated).user.role == UserRole.doctor ? 'patients' : 'doctors'}',
             style: TextStyle(color: Colors.grey[600], fontSize: 14),
           ),
         ],

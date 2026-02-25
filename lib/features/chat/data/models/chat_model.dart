@@ -5,6 +5,7 @@ class ChatModel extends ChatEntity {
   const ChatModel({
     required super.id,
     required super.participantIds,
+    required super.participantNames,
     super.lastMessage,
   });
 
@@ -12,6 +13,9 @@ class ChatModel extends ChatEntity {
     return ChatModel(
       id: json['id'],
       participantIds: List<String>.from(json['participantIds']),
+      participantNames: Map<String, String>.from(
+        json['participantNames'] ?? {},
+      ),
       lastMessage: json['lastMessage'] != null
           ? MessageModel.fromJson(json['lastMessage'])
           : null,
@@ -22,6 +26,7 @@ class ChatModel extends ChatEntity {
     return {
       'id': id,
       'participantIds': participantIds,
+      'participantNames': participantNames,
       'lastMessage': lastMessage != null
           ? (lastMessage as MessageModel).toJson()
           : null,

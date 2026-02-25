@@ -25,83 +25,95 @@ class DoctorDashboard extends StatefulWidget {
 }
 
 class _DoctorDashboardState extends State<DoctorDashboard> {
-  bool _isOnline = false;
+  bool isOn = false;
   int _selectedIndex = 0;
-
-  late final List<Widget> _pages;
 
   @override
   void initState() {
     super.initState();
     final user = widget.user;
-    _isOnline = (user is DoctorEntity) ? user.isOnline : false;
+    if (user is DoctorEntity) {
+      isOn = user.isOnline;
+    }
     _refresh();
     context.read<CallBloc>().listenToIncomingCalls(widget.user.id);
-
-    _pages = [
-      _buildHomeContent(),
-      const ChatListPage(),
-      const Center(child: Text('Video Call History\n(Coming Soon)')),
-    ];
+    // Subscribe to real-time profile changes (for initial sync)
+    context.read<DoctorBloc>().add(GetDoctorProfileEvent(widget.user.id));
   }
 
   void _refresh() {
     context.read<BookingBloc>().add(GetDoctorBookingsEvent(widget.user.id));
   }
 
+  void _handleAvailabilityToggle(bool value) {
+    setState(() {
+      isOn = value;
+    });
+    // Sync to Firestore so patients see it in real-time
+    context.read<DoctorBloc>().add(
+      UpdateAvailabilityEvent(widget.user.id, value),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return IncomingCallOverlay(
-      child: Scaffold(
-        backgroundColor: Colors.grey[50],
-        appBar: AppBar(
-          title: Text(
-            _selectedIndex == 0
-                ? 'Doctor Dashboard'
-                : _selectedIndex == 1
-                ? 'Messages'
-                : 'Video Calls',
+    final pages = [_buildHomeContent(), const ChatListPage()];
+
+    return BlocListener<DoctorBloc, DoctorState>(
+      listener: (context, state) {
+        if (state is DoctorError) {
+          CustomSnackBar.show(
+            context,
+            message: 'Firestore Update Error',
+            type: SnackBarType.error,
+          );
+        }
+      },
+      child: IncomingCallOverlay(
+        child: Scaffold(
+          backgroundColor: Colors.grey[50],
+          appBar: AppBar(
+            title: Text(_selectedIndex == 0 ? 'Doctor Dashboard' : 'Messages'),
+            elevation: 0,
+            backgroundColor: Colors.white,
+            foregroundColor: Colors.black,
+            actions: [
+              if (_selectedIndex == 0)
+                IconButton(
+                  icon: const Icon(Icons.refresh),
+                  onPressed: _refresh,
+                ),
+              IconButton(
+                icon: const Icon(Icons.logout),
+                onPressed: () =>
+                    context.read<AuthBloc>().add(AuthLogoutEvent()),
+              ),
+            ],
           ),
-          elevation: 0,
-          backgroundColor: Colors.white,
-          foregroundColor: Colors.black,
-          actions: [
-            if (_selectedIndex == 0)
-              IconButton(icon: const Icon(Icons.refresh), onPressed: _refresh),
-            IconButton(
-              icon: const Icon(Icons.logout),
-              onPressed: () => context.read<AuthBloc>().add(AuthLogoutEvent()),
-            ),
-          ],
-        ),
-        body: IndexedStack(index: _selectedIndex, children: _pages),
-        bottomNavigationBar: BottomNavigationBar(
-          currentIndex: _selectedIndex,
-          onTap: (index) {
-            setState(() {
-              _selectedIndex = index;
-            });
-            if (index == 0) _refresh();
-          },
-          selectedItemColor: AppTheme.primaryColor,
-          unselectedItemColor: Colors.grey,
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.home_outlined),
-              activeIcon: Icon(Icons.home),
-              label: 'Home',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.message_outlined),
-              activeIcon: Icon(Icons.message),
-              label: 'Chat',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.videocam_outlined),
-              activeIcon: Icon(Icons.videocam),
-              label: 'Calls',
-            ),
-          ],
+          body: IndexedStack(index: _selectedIndex, children: pages),
+          bottomNavigationBar: BottomNavigationBar(
+            currentIndex: _selectedIndex,
+            onTap: (index) {
+              setState(() {
+                _selectedIndex = index;
+              });
+              if (index == 0) _refresh();
+            },
+            selectedItemColor: AppTheme.primaryColor,
+            unselectedItemColor: Colors.grey,
+            items: const [
+              BottomNavigationBarItem(
+                icon: Icon(Icons.home_outlined),
+                activeIcon: Icon(Icons.home),
+                label: 'Home',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.message_outlined),
+                activeIcon: Icon(Icons.message),
+                label: 'Messages',
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -116,7 +128,19 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
           _buildStatusCard(),
           const SizedBox(height: 24),
           _buildActionGrid(),
-          const SizedBox(height: 32),
+          const SizedBox(height: 24),
+          // ── Live Earnings Summary ──────────────────────────────────────
+          BlocBuilder<BookingBloc, BookingState>(
+            builder: (context, state) {
+              if (state is BookingsLoaded) {
+                return _buildEarningsSummaryCard(state.bookings);
+              }
+              // Show a shimmer/placeholder while loading
+              return _buildEarningsSummaryCard(const []);
+            },
+          ),
+          const SizedBox(height: 24),
+          // ── Recent Booking Requests ────────────────────────────────────
           const Text(
             'Recent Booking Requests',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -150,14 +174,152 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
     );
   }
 
+  /// Live earnings card: updates automatically whenever the booking stream fires.
+  /// Counts both [accepted] and [completed] bookings towards total earnings.
+  Widget _buildEarningsSummaryCard(List<BookingEntity> bookings) {
+    final paidBookings = bookings
+        .where(
+          (b) =>
+              b.status == BookingStatus.accepted ||
+              b.status == BookingStatus.completed,
+        )
+        .toList();
+
+    double totalEarned = 0;
+    double totalCommission = 0;
+    for (final b in paidBookings) {
+      totalEarned += b.doctorEarning; // ₹80 each
+      totalCommission += b.commission; // ₹20 each
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF1A73E8), Color(0xFF0D47A1)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF1A73E8).withAlpha(89),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Total Earnings',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 13,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white.withAlpha(38),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  '${paidBookings.length} consultation${paidBookings.length == 1 ? '' : 's'}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '₹${totalEarned.toStringAsFixed(0)}',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 42,
+              fontWeight: FontWeight.bold,
+              letterSpacing: -1,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Container(height: 1, color: Colors.white24),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              // Doctor's share
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Your share (80%)',
+                      style: TextStyle(color: Colors.white60, fontSize: 11),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '₹${totalEarned.toStringAsFixed(0)}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(width: 1, height: 36, color: Colors.white24),
+              // Admin commission
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Admin commission (20%)',
+                        style: TextStyle(color: Colors.white60, fontSize: 11),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '₹${totalCommission.toStringAsFixed(0)}',
+                        style: TextStyle(
+                          color: Colors.white.withAlpha(217),
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildStatusCard() {
     return Card(
       elevation: 0,
-      color: _isOnline ? Colors.green[50] : Colors.grey[100],
+      color: isOn ? Colors.green[50] : Colors.grey[100],
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
-          color: _isOnline
+          color: isOn
               ? (Colors.green[200] ?? Colors.green)
               : (Colors.grey[300] ?? Colors.grey),
         ),
@@ -167,7 +329,7 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
         child: Row(
           children: [
             CircleAvatar(
-              backgroundColor: _isOnline ? Colors.green : Colors.grey,
+              backgroundColor: isOn ? Colors.green : Colors.grey,
               radius: 8,
             ),
             const SizedBox(width: 16),
@@ -176,15 +338,15 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    _isOnline ? 'You are Online' : 'You are Offline',
+                    isOn ? 'You are Online' : 'You are Offline',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: _isOnline ? Colors.green[900] : Colors.grey[600],
+                      color: isOn ? Colors.green[900] : Colors.grey[600],
                     ),
                   ),
                   Text(
-                    _isOnline
+                    isOn
                         ? 'Patients can see you and book appointments'
                         : 'Your profile is hidden from search',
                     style: TextStyle(fontSize: 12, color: Colors.grey[600]),
@@ -192,15 +354,22 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
                 ],
               ),
             ),
-            Switch(
-              value: _isOnline,
-              activeColor: Colors.green,
-              onChanged: (v) {
-                setState(() => _isOnline = v);
-                context.read<DoctorBloc>().add(
-                  UpdateAvailabilityEvent(widget.user.id, v),
-                );
-              },
+            Column(
+              children: [
+                Switch(
+                  value: isOn,
+                  activeColor: Colors.green,
+                  onChanged: _handleAvailabilityToggle,
+                ),
+                Text(
+                  isOn ? "Status: ON" : "Status: OFF",
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: isOn ? Colors.green : Colors.grey,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -217,8 +386,11 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
       crossAxisSpacing: 16,
       childAspectRatio: 1.5,
       children: [
-        _buildActionCard('Manage Slots', Icons.calendar_month, Colors.blue, () {
-          Navigator.push(
+        _buildActionCard(
+          'Manage Slots',
+          Icons.calendar_month,
+          Colors.blue,
+          () => Navigator.push(
             context,
             MaterialPageRoute(
               builder: (_) => ManageSlotsPage(
@@ -228,73 +400,18 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
                     : [],
               ),
             ),
-          );
-        }),
+          ),
+        ),
         _buildActionCard(
           'Earnings',
           Icons.account_balance_wallet,
           Colors.orange,
-          () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const EarningsPage()),
-            );
-          },
-        ),
-        _buildActionCard(
-          'Update Fee',
-          Icons.payments_outlined,
-          Colors.green,
-          _showUpdateFeeDialog,
+          () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const EarningsPage()),
+          ),
         ),
       ],
-    );
-  }
-
-  void _showUpdateFeeDialog() {
-    if (widget.user is! DoctorEntity) {
-      CustomSnackBar.show(
-        context,
-        message: 'Doctor profile not found',
-        type: SnackBarType.error,
-      );
-      return;
-    }
-    final doctor = widget.user as DoctorEntity;
-    final controller = TextEditingController(
-      text: doctor.consultationFee.toString(),
-    );
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Consultation Fee'),
-        content: TextField(
-          controller: controller,
-          keyboardType: TextInputType.number,
-          decoration: const InputDecoration(
-            labelText: 'Amount (₹)',
-            prefixText: '₹ ',
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('CANCEL'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final fee = double.tryParse(controller.text);
-              if (fee != null) {
-                context.read<DoctorBloc>().add(
-                  UpdateConsultationFeeEvent(widget.user.id, fee),
-                );
-                Navigator.pop(context);
-              }
-            },
-            child: const Text('UPDATE'),
-          ),
-        ],
-      ),
     );
   }
 

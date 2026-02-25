@@ -16,7 +16,7 @@ class GetPatientBookingsUseCase {
   final BookingRepository repository;
   GetPatientBookingsUseCase(this.repository);
 
-  Future<Either<Failure, List<BookingEntity>>> call(String userId) {
+  Stream<List<BookingEntity>> call(String userId) {
     return repository.getPatientBookings(userId);
   }
 }

@@ -85,6 +85,9 @@ class _PatientDashboardState extends State<PatientDashboard> {
             setState(() {
               _selectedIndex = index;
             });
+            // Re-fetch doctors each time user returns to Explore
+            // so online/offline status is always current
+            if (index == 0) _fetchDoctors();
           },
           selectedItemColor: AppTheme.primaryColor,
           unselectedItemColor: Colors.grey,
