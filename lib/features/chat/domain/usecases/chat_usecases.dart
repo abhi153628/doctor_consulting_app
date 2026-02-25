@@ -8,7 +8,7 @@ class GetChatsUseCase {
   final ChatRepository repository;
   GetChatsUseCase(this.repository);
 
-  Future<Either<Failure, List<ChatEntity>>> call(String userId) {
+  Stream<List<ChatEntity>> call(String userId) {
     return repository.getChats(userId);
   }
 }

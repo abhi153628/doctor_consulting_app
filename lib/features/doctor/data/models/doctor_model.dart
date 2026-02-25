@@ -15,6 +15,7 @@ class DoctorModel extends DoctorEntity {
     super.rating,
     super.totalConsultations,
     super.phoneNumber,
+    super.consultationFee,
   });
 
   factory DoctorModel.fromJson(Map<String, dynamic> json) {
@@ -34,6 +35,7 @@ class DoctorModel extends DoctorEntity {
       rating: (json['rating'] ?? 0.0).toDouble(),
       totalConsultations: json['totalConsultations'] ?? 0,
       phoneNumber: json['phoneNumber'],
+      consultationFee: (json['consultationFee'] ?? 500.0).toDouble(),
     );
   }
 
@@ -51,6 +53,7 @@ class DoctorModel extends DoctorEntity {
       'rating': rating,
       'totalConsultations': totalConsultations,
       'phoneNumber': phoneNumber,
+      'consultationFee': consultationFee,
     };
   }
 }

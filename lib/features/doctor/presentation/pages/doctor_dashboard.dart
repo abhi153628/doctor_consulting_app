@@ -3,7 +3,6 @@ import 'package:doctor_booking_app/features/doctor/presentation/bloc/doctor_bloc
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:doctor_booking_app/features/auth/domain/entities/user_entity.dart';
-import 'package:doctor_booking_app/features/auth/data/models/user_model.dart';
 import 'package:doctor_booking_app/features/doctor/domain/entities/doctor_entity.dart';
 import 'package:doctor_booking_app/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:doctor_booking_app/features/booking/presentation/bloc/booking_bloc.dart';
@@ -15,6 +14,7 @@ import 'package:doctor_booking_app/core/theme/app_theme.dart';
 import 'package:intl/intl.dart';
 import 'package:doctor_booking_app/features/call/presentation/bloc/call_bloc.dart';
 import 'package:doctor_booking_app/features/call/presentation/widgets/incoming_call_overlay.dart';
+import 'package:doctor_booking_app/core/utils/snackbar_utils.dart';
 
 class DoctorDashboard extends StatefulWidget {
   final UserEntity user;
@@ -34,7 +34,7 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
   void initState() {
     super.initState();
     final user = widget.user;
-    _isOnline = (user is UserModel) ? (user.isApproved ?? false) : false;
+    _isOnline = (user is DoctorEntity) ? user.isOnline : false;
     _refresh();
     context.read<CallBloc>().listenToIncomingCalls(widget.user.id);
 
@@ -241,7 +241,60 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
             );
           },
         ),
+        _buildActionCard(
+          'Update Fee',
+          Icons.payments_outlined,
+          Colors.green,
+          _showUpdateFeeDialog,
+        ),
       ],
+    );
+  }
+
+  void _showUpdateFeeDialog() {
+    if (widget.user is! DoctorEntity) {
+      CustomSnackBar.show(
+        context,
+        message: 'Doctor profile not found',
+        type: SnackBarType.error,
+      );
+      return;
+    }
+    final doctor = widget.user as DoctorEntity;
+    final controller = TextEditingController(
+      text: doctor.consultationFee.toString(),
+    );
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Consultation Fee'),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(
+            labelText: 'Amount (₹)',
+            prefixText: '₹ ',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('CANCEL'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final fee = double.tryParse(controller.text);
+              if (fee != null) {
+                context.read<DoctorBloc>().add(
+                  UpdateConsultationFeeEvent(widget.user.id, fee),
+                );
+                Navigator.pop(context);
+              }
+            },
+            child: const Text('UPDATE'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -289,8 +342,7 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
             ? Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  IconButton(
-                    icon: const Icon(Icons.check_circle, color: Colors.green),
+                  TextButton(
                     onPressed: () {
                       context.read<BookingBloc>().add(
                         UpdateBookingStatusEvent(
@@ -299,9 +351,19 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
                         ),
                       );
                     },
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.green,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                    ),
+                    child: const Text(
+                      'ACCEPT',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.cancel, color: Colors.red),
+                  TextButton(
                     onPressed: () {
                       context.read<BookingBloc>().add(
                         UpdateBookingStatusEvent(
@@ -310,23 +372,74 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
                         ),
                       );
                     },
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.red,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                    ),
+                    child: const Text(
+                      'REJECT',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
                   ),
                 ],
               )
-            : IconButton(
-                icon: const Icon(Icons.chat_bubble_outline),
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => ChatPage(
-                        chatId: '${booking.userId}_${booking.doctorId}',
-                        receiverName: 'Patient',
-                      ),
-                    ),
-                  );
-                },
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _getStatusBadge(booking.status),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: const Icon(Icons.chat_bubble_outline, size: 20),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ChatPage(
+                            chatId: '${booking.userId}_${booking.doctorId}',
+                            receiverName: 'Patient',
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ],
               ),
+      ),
+    );
+  }
+
+  Widget _getStatusBadge(BookingStatus status) {
+    Color color = Colors.grey;
+    switch (status) {
+      case BookingStatus.accepted:
+        color = Colors.green;
+        break;
+      case BookingStatus.rejected:
+        color = Colors.red;
+        break;
+      case BookingStatus.completed:
+        color = Colors.blue;
+        break;
+      default:
+        color = Colors.grey;
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: color.withOpacity(0.5)),
+      ),
+      child: Text(
+        status.name.toUpperCase(),
+        style: TextStyle(
+          color: color,
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+        ),
       ),
     );
   }

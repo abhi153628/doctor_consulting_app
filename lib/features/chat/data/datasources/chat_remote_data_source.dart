@@ -3,7 +3,7 @@ import 'package:doctor_booking_app/features/chat/data/models/chat_model.dart';
 import 'package:doctor_booking_app/features/chat/data/models/message_model.dart';
 
 abstract class ChatRemoteDataSource {
-  Future<List<ChatModel>> getChats(String userId);
+  Stream<List<ChatModel>> getChats(String userId);
   Stream<List<MessageModel>> getMessages(String chatId);
   Future<void> sendMessage(MessageModel message);
   Future<void> markMessageAsRead(String chatId, String messageId);
@@ -16,12 +16,17 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
   ChatRemoteDataSourceImpl({required this.firestore});
 
   @override
-  Future<List<ChatModel>> getChats(String userId) async {
-    final snapshot = await firestore
+  Stream<List<ChatModel>> getChats(String userId) {
+    return firestore
         .collection('chats')
         .where('participantIds', arrayContains: userId)
-        .get();
-    return snapshot.docs.map((doc) => ChatModel.fromJson(doc.data())).toList();
+        .orderBy('lastMessage.timestamp', descending: true)
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => ChatModel.fromJson(doc.data()))
+              .toList(),
+        );
   }
 
   @override

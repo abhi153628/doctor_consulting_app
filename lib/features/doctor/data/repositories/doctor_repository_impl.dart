@@ -62,6 +62,19 @@ class DoctorRepositoryImpl implements DoctorRepository {
   }
 
   @override
+  Future<Either<Failure, void>> updateConsultationFee(
+    String doctorId,
+    double fee,
+  ) async {
+    try {
+      await remoteDataSource.updateConsultationFee(doctorId, fee);
+      return const Right(null);
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
+  }
+
+  @override
   Future<Either<Failure, List<DoctorEntity>>> getPendingDoctors() async {
     try {
       final doctors = await remoteDataSource.getPendingDoctors();

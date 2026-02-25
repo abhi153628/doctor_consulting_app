@@ -15,6 +15,11 @@ class GetDoctorsEvent extends DoctorEvent {
   const GetDoctorsEvent({this.specialization});
 }
 
+class GetDoctorProfileEvent extends DoctorEvent {
+  final String doctorId;
+  const GetDoctorProfileEvent(this.doctorId);
+}
+
 class UpdateAvailabilityEvent extends DoctorEvent {
   final String doctorId;
   final bool isOnline;
@@ -32,6 +37,12 @@ class GetPendingDoctorsEvent extends DoctorEvent {}
 class ApproveDoctorEvent extends DoctorEvent {
   final String doctorId;
   const ApproveDoctorEvent(this.doctorId);
+}
+
+class UpdateConsultationFeeEvent extends DoctorEvent {
+  final String doctorId;
+  final double fee;
+  const UpdateConsultationFeeEvent(this.doctorId, this.fee);
 }
 
 // States
@@ -55,16 +66,23 @@ class DoctorError extends DoctorState {
   const DoctorError(this.message);
 }
 
+class DoctorProfileLoaded extends DoctorState {
+  final DoctorEntity doctor;
+  const DoctorProfileLoaded(this.doctor);
+}
+
 // BLoC
 class DoctorBloc extends Bloc<DoctorEvent, DoctorState> {
   final DoctorRepository repository;
 
   DoctorBloc({required this.repository}) : super(DoctorInitial()) {
     on<GetDoctorsEvent>(_onGetDoctors);
+    on<GetDoctorProfileEvent>(_onGetDoctorProfile);
     on<UpdateAvailabilityEvent>(_onUpdateAvailability);
     on<UpdateSlotsEvent>(_onUpdateSlots);
     on<GetPendingDoctorsEvent>(_onGetPendingDoctors);
     on<ApproveDoctorEvent>(_onApproveDoctor);
+    on<UpdateConsultationFeeEvent>(_onUpdateConsultationFee);
   }
 
   Future<void> _onGetDoctors(
@@ -82,6 +100,22 @@ class DoctorBloc extends Bloc<DoctorEvent, DoctorState> {
       );
     } catch (e) {
       emit(DoctorError('Failed to load doctors: ${e.toString()}'));
+    }
+  }
+
+  Future<void> _onGetDoctorProfile(
+    GetDoctorProfileEvent event,
+    Emitter<DoctorState> emit,
+  ) async {
+    try {
+      emit(DoctorLoading());
+      final result = await repository.getDoctorProfile(event.doctorId);
+      result.fold(
+        (failure) => emit(DoctorError(failure.message)),
+        (doctor) => emit(DoctorProfileLoaded(doctor)),
+      );
+    } catch (e) {
+      emit(DoctorError('Failed to load profile: ${e.toString()}'));
     }
   }
 
@@ -137,6 +171,20 @@ class DoctorBloc extends Bloc<DoctorEvent, DoctorState> {
     result.fold(
       (failure) => emit(DoctorError(failure.message)),
       (_) => add(GetPendingDoctorsEvent()),
+    );
+  }
+
+  Future<void> _onUpdateConsultationFee(
+    UpdateConsultationFeeEvent event,
+    Emitter<DoctorState> emit,
+  ) async {
+    final result = await repository.updateConsultationFee(
+      event.doctorId,
+      event.fee,
+    );
+    result.fold(
+      (failure) => emit(DoctorError(failure.message)),
+      (_) => add(const GetDoctorsEvent()),
     );
   }
 }

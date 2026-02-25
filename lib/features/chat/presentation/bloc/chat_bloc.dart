@@ -1,8 +1,8 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:doctor_booking_app/features/chat/domain/entities/chat_entity.dart';
-import 'package:doctor_booking_app/features/chat/domain/entities/message_entity.dart';
 import 'package:doctor_booking_app/features/chat/domain/repositories/chat_repository.dart';
+import 'package:bloc_concurrency/bloc_concurrency.dart';
 
 // Events
 abstract class ChatEvent extends Equatable {
@@ -14,95 +14,58 @@ abstract class ChatEvent extends Equatable {
 class GetChatsEvent extends ChatEvent {
   final String userId;
   const GetChatsEvent(this.userId);
-}
-
-class SendMessageEvent extends ChatEvent {
-  final MessageEntity message;
-  const SendMessageEvent(this.message);
-}
-
-class LoadMessagesEvent extends ChatEvent {
-  final String chatId;
-  const LoadMessagesEvent(this.chatId);
-}
-
-class MarkMessagesAsReadEvent extends ChatEvent {
-  final String chatId;
-  final String userId;
-  const MarkMessagesAsReadEvent(this.chatId, this.userId);
+  @override
+  List<Object?> get props => [userId];
 }
 
 // States
-abstract class ChatState extends Equatable {
-  const ChatState();
-  @override
-  List<Object?> get props => [];
-}
+enum ChatStatus { initial, loading, loaded, error }
 
-class ChatInitial extends ChatState {}
-
-class ChatLoading extends ChatState {}
-
-class ChatsLoaded extends ChatState {
+class ChatState extends Equatable {
   final List<ChatEntity> chats;
-  const ChatsLoaded(this.chats);
-}
+  final ChatStatus status;
+  final String? errorMessage;
 
-class MessagesLoaded extends ChatState {
-  final List<MessageEntity> messages;
-  const MessagesLoaded(this.messages);
-}
+  const ChatState({
+    this.chats = const [],
+    this.status = ChatStatus.initial,
+    this.errorMessage,
+  });
 
-class ChatError extends ChatState {
-  final String message;
-  const ChatError(this.message);
+  ChatState copyWith({
+    List<ChatEntity>? chats,
+    ChatStatus? status,
+    String? errorMessage,
+  }) {
+    return ChatState(
+      chats: chats ?? this.chats,
+      status: status ?? this.status,
+      errorMessage: errorMessage,
+    );
+  }
+
+  @override
+  List<Object?> get props => [chats, status, errorMessage];
 }
 
 // BLoC
 class ChatBloc extends Bloc<ChatEvent, ChatState> {
   final ChatRepository repository;
 
-  ChatBloc({required this.repository}) : super(ChatInitial()) {
-    on<GetChatsEvent>(_onGetChats);
-    on<SendMessageEvent>(_onSendMessage);
-    on<LoadMessagesEvent>(_onLoadMessages);
-    on<MarkMessagesAsReadEvent>(_onMarkMessagesAsRead);
+  ChatBloc({required this.repository}) : super(const ChatState()) {
+    on<GetChatsEvent>(_onGetChats, transformer: restartable());
   }
 
   Future<void> _onGetChats(GetChatsEvent event, Emitter<ChatState> emit) async {
-    emit(ChatLoading());
-    final result = await repository.getChats(event.userId);
-    result.fold(
-      (failure) => emit(ChatError(failure.message)),
-      (chats) => emit(ChatsLoaded(chats)),
-    );
-  }
-
-  Future<void> _onSendMessage(
-    SendMessageEvent event,
-    Emitter<ChatState> emit,
-  ) async {
-    await repository.sendMessage(event.message);
-  }
-
-  Future<void> _onMarkMessagesAsRead(
-    MarkMessagesAsReadEvent event,
-    Emitter<ChatState> emit,
-  ) async {
-    await repository.markMessagesAsRead(event.chatId, event.userId);
-  }
-
-  Future<void> _onLoadMessages(
-    LoadMessagesEvent event,
-    Emitter<ChatState> emit,
-  ) async {
-    emit(ChatLoading());
-    await emit.forEach<List<MessageEntity>>(
-      repository.getMessages(event.chatId),
-      onData: (messages) => MessagesLoaded(messages),
-      onError: (error, stackTrace) => ChatError(error.toString()),
+    emit(state.copyWith(status: ChatStatus.loading));
+    await emit.forEach<List<ChatEntity>>(
+      repository.getChats(event.userId),
+      onData: (chats) =>
+          state.copyWith(chats: chats, status: ChatStatus.loaded),
+      onError: (error, stackTrace) => state.copyWith(
+        status: ChatStatus.error,
+        errorMessage: error.toString(),
+      ),
     );
   }
 }
-
-// Note: I'll need to handle the stream updates properly in the final implementation.

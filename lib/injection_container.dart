@@ -22,6 +22,7 @@ import 'package:doctor_booking_app/features/chat/data/datasources/chat_remote_da
 import 'package:doctor_booking_app/features/chat/data/repositories/chat_repository_impl.dart';
 import 'package:doctor_booking_app/features/chat/domain/repositories/chat_repository.dart';
 import 'package:doctor_booking_app/features/chat/presentation/bloc/chat_bloc.dart';
+import 'package:doctor_booking_app/features/chat/presentation/bloc/message_bloc.dart';
 
 import 'package:doctor_booking_app/features/call/data/datasources/call_remote_data_source.dart';
 import 'package:doctor_booking_app/features/call/presentation/bloc/call_bloc.dart';
@@ -60,6 +61,7 @@ Future<void> init() async {
 
   // Chat
   sl.registerFactory(() => ChatBloc(repository: sl()));
+  sl.registerFactory(() => MessageBloc(repository: sl()));
   sl.registerLazySingleton<ChatRepository>(
     () => ChatRepositoryImpl(remoteDataSource: sl()),
   );

@@ -6,6 +6,7 @@ abstract class DoctorRemoteDataSource {
   Future<DoctorModel> getDoctorProfile(String doctorId);
   Future<void> updateAvailability(String doctorId, bool isOnline);
   Future<void> updateTimeSlots(String doctorId, List<String> slots);
+  Future<void> updateConsultationFee(String doctorId, double fee);
   Future<List<DoctorModel>> getPendingDoctors();
   Future<void> approveDoctor(String doctorId);
 }
@@ -50,6 +51,13 @@ class DoctorRemoteDataSourceImpl implements DoctorRemoteDataSource {
   Future<void> updateTimeSlots(String doctorId, List<String> slots) async {
     await firestore.collection('doctors').doc(doctorId).update({
       'availableTimeSlots': slots,
+    });
+  }
+
+  @override
+  Future<void> updateConsultationFee(String doctorId, double fee) async {
+    await firestore.collection('doctors').doc(doctorId).update({
+      'consultationFee': fee,
     });
   }
 

@@ -6,6 +6,7 @@ import 'package:doctor_booking_app/features/auth/presentation/bloc/auth_bloc.dar
 import 'package:doctor_booking_app/features/doctor/presentation/bloc/doctor_bloc.dart';
 import 'package:doctor_booking_app/features/booking/presentation/bloc/booking_bloc.dart';
 import 'package:doctor_booking_app/features/chat/presentation/bloc/chat_bloc.dart';
+import 'package:doctor_booking_app/features/chat/presentation/bloc/message_bloc.dart';
 import 'package:doctor_booking_app/features/call/presentation/bloc/call_bloc.dart';
 import 'package:doctor_booking_app/features/auth/presentation/pages/login_page.dart';
 import 'package:doctor_booking_app/features/doctor/presentation/pages/patient_dashboard.dart';
@@ -38,6 +39,7 @@ class MyApp extends StatelessWidget {
         BlocProvider(create: (_) => di.sl<DoctorBloc>()),
         BlocProvider(create: (_) => di.sl<BookingBloc>()),
         BlocProvider(create: (_) => di.sl<ChatBloc>()),
+        BlocProvider(create: (_) => di.sl<MessageBloc>()),
         BlocProvider(create: (_) => di.sl<CallBloc>()),
       ],
       child: MaterialApp(

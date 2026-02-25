@@ -35,12 +35,26 @@ class _ManageSlotsPageState extends State<ManageSlotsPage> {
     );
     if (picked != null) {
       setState(() {
-        final formattedTime = picked.format(context);
-        if (!_slots.contains(formattedTime)) {
-          _slots.add(formattedTime);
+        // Store in a standard HH:mm format for reliable parsing
+        final String hour = picked.hour.toString().padLeft(2, '0');
+        final String minute = picked.minute.toString().padLeft(2, '0');
+        final standardTime = '$hour:$minute';
+
+        if (!_slots.contains(standardTime)) {
+          _slots.add(standardTime);
+
+          // Sort chronologically
+          _slots.sort((a, b) {
+            final aParts = a.split(':');
+            final bParts = b.split(':');
+            final aValue = int.parse(aParts[0]) * 60 + int.parse(aParts[1]);
+            final bValue = int.parse(bParts[0]) * 60 + int.parse(bParts[1]);
+            return aValue.compareTo(bValue);
+          });
+
           CustomSnackBar.show(
             context,
-            message: 'Slot added: $formattedTime',
+            message: 'Slot added: ${picked.format(context)}',
             type: SnackBarType.success,
           );
         } else {
@@ -51,6 +65,19 @@ class _ManageSlotsPageState extends State<ManageSlotsPage> {
           );
         }
       });
+    }
+  }
+
+  String _formatForDisplay(String standardTime) {
+    try {
+      final parts = standardTime.split(':');
+      final time = TimeOfDay(
+        hour: int.parse(parts[0]),
+        minute: int.parse(parts[1]),
+      );
+      return time.format(context);
+    } catch (e) {
+      return standardTime;
     }
   }
 
@@ -107,7 +134,7 @@ class _ManageSlotsPageState extends State<ManageSlotsPage> {
                       children: _slots
                           .map(
                             (slot) => Chip(
-                              label: Text(slot),
+                              label: Text(_formatForDisplay(slot)),
                               onDeleted: () {
                                 setState(() => _slots.remove(slot));
                               },

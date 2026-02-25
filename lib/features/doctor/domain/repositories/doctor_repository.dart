@@ -15,6 +15,10 @@ abstract class DoctorRepository {
     String doctorId,
     List<String> slots,
   );
+  Future<Either<Failure, void>> updateConsultationFee(
+    String doctorId,
+    double fee,
+  );
   Future<Either<Failure, List<DoctorEntity>>> getPendingDoctors();
   Future<Either<Failure, void>> approveDoctor(String doctorId);
 }

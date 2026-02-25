@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:doctor_booking_app/features/doctor/domain/entities/doctor_entity.dart';
 import 'package:doctor_booking_app/features/doctor/presentation/bloc/doctor_bloc.dart';
 import 'package:doctor_booking_app/features/auth/domain/entities/user_entity.dart';
 import 'package:doctor_booking_app/features/auth/presentation/bloc/auth_bloc.dart';
@@ -180,166 +181,181 @@ class _PatientDashboardState extends State<PatientDashboard> {
         Expanded(
           child: BlocBuilder<DoctorBloc, DoctorState>(
             builder: (context, state) {
-              if (state is DoctorLoading) {
+              if (state is DoctorLoading && _searchController.text.isEmpty) {
                 return const Center(child: CircularProgressIndicator());
-              } else if (state is DoctorsLoaded) {
-                final doctors = state.doctors;
-                final filteredDoctors = doctors.where((d) {
-                  final query = _searchController.text.toLowerCase();
-                  if (query.isEmpty) return true;
-                  final name = d.name.toLowerCase();
-                  return name.contains(query);
-                }).toList();
+              }
 
-                if (filteredDoctors.isEmpty) {
-                  return const Center(child: Text('No doctors found'));
+              List<DoctorEntity> doctors = [];
+              if (state is DoctorsLoaded) {
+                doctors = state.doctors;
+              } else if (state is DoctorProfileLoaded) {
+                // If we are in profile loaded state, it means we navigated away
+                // and came back, or the bloc just updated.
+                // We should re-fetch if we don't have doctors, but usually
+                // we want the list to persist.
+                // For now, if we're on the search tab and state isn't DoctorsLoaded,
+                // we should consider the last known doctors or re-fetch.
+                // However, the best fix here is to allow DoctorsLoaded to be "sticky"
+                // or handle the specific transition.
+
+                // Let's trigger a re-fetch if the user is on the explore tab
+                // but the state doesn't have the list.
+                if (_selectedIndex == 0) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    _fetchDoctors();
+                  });
                 }
+              }
 
-                return ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: filteredDoctors.length,
-                  itemBuilder: (context, index) {
-                    if (index >= filteredDoctors.length) {
-                      return const SizedBox();
-                    }
-                    final doctor = filteredDoctors[index];
+              final filteredDoctors = doctors.where((d) {
+                final query = _searchController.text.toLowerCase();
+                if (query.isEmpty) return true;
+                final name = d.name.toLowerCase();
+                return name.contains(query);
+              }).toList();
 
-                    return Card(
-                      elevation: 0,
-                      margin: const EdgeInsets.only(bottom: 16),
-                      color: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        side: BorderSide(
-                          color: (Colors.grey[200] ?? Colors.grey),
-                        ),
+              if (filteredDoctors.isEmpty && state is DoctorsLoaded) {
+                return const Center(child: Text('No doctors found'));
+              }
+
+              if (filteredDoctors.isEmpty && state is! DoctorLoading) {
+                return const Center(child: Text('Search for doctors above'));
+              }
+
+              return ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: filteredDoctors.length,
+                itemBuilder: (context, index) {
+                  final doctor = filteredDoctors[index];
+                  return Card(
+                    elevation: 0,
+                    margin: const EdgeInsets.only(bottom: 16),
+                    color: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      side: BorderSide(
+                        color: (Colors.grey[200] ?? Colors.grey),
                       ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Column(
-                          children: [
-                            ListTile(
-                              contentPadding: EdgeInsets.zero,
-                              leading: CircleAvatar(
-                                radius: 30,
-                                backgroundColor: AppTheme.primaryColor
-                                    .withAlpha(25),
-                                child: const Icon(
-                                  Icons.person,
-                                  color: AppTheme.primaryColor,
-                                ),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        children: [
+                          ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: CircleAvatar(
+                              radius: 30,
+                              backgroundColor: AppTheme.primaryColor.withAlpha(
+                                25,
                               ),
-                              title: Text(
-                                doctor.name,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 18,
-                                ),
-                              ),
-                              subtitle: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    doctor.specialization.isNotEmpty
-                                        ? doctor.specialization
-                                        : 'General Physician',
-                                    style: TextStyle(
-                                      color: Colors.grey[600] ?? Colors.grey,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Row(
-                                    children: [
-                                      const Icon(
-                                        Icons.star,
-                                        color: Colors.amber,
-                                        size: 16,
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        doctor.rating.toString(),
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Icon(
-                                        Icons.circle,
-                                        color: doctor.isOnline
-                                            ? Colors.green
-                                            : Colors.grey,
-                                        size: 8,
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        doctor.isOnline ? 'Online' : 'Offline',
-                                        style: const TextStyle(fontSize: 12),
-                                      ),
-                                    ],
-                                  ),
-                                ],
+                              child: const Icon(
+                                Icons.person,
+                                color: AppTheme.primaryColor,
                               ),
                             ),
-                            const Divider(height: 24),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.end,
+                            title: Text(
+                              doctor.name,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                              ),
+                            ),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                TextButton.icon(
-                                  onPressed: () {
-                                    if (doctor.id.isEmpty) return;
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) => ChatPage(
-                                          chatId:
-                                              '${widget.user.id}_${doctor.id}',
-                                          receiverName: doctor.name.isNotEmpty
-                                              ? doctor.name
-                                              : 'Doctor',
-                                          receiverPhoneNumber:
-                                              doctor.phoneNumber,
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                  icon: const Icon(
-                                    Icons.chat_outlined,
-                                    size: 18,
+                                Text(
+                                  doctor.specialization.isNotEmpty
+                                      ? doctor.specialization
+                                      : 'General Physician',
+                                  style: TextStyle(
+                                    color: Colors.grey[600] ?? Colors.grey,
                                   ),
-                                  label: const Text('Chat'),
                                 ),
-                                const SizedBox(width: 8),
-                                ElevatedButton(
-                                  onPressed: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) =>
-                                            DoctorDetailsPage(doctor: doctor),
-                                      ),
-                                    );
-                                  },
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppTheme.primaryColor,
-                                    foregroundColor: Colors.white,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.star,
+                                      color: Colors.amber,
+                                      size: 16,
                                     ),
-                                  ),
-                                  child: const Text('View Profile'),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      doctor.rating.toString(),
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Icon(
+                                      Icons.circle,
+                                      color: doctor.isOnline
+                                          ? Colors.green
+                                          : Colors.grey,
+                                      size: 8,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      doctor.isOnline ? 'Online' : 'Offline',
+                                      style: const TextStyle(fontSize: 12),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
-                          ],
-                        ),
+                          ),
+                          const Divider(height: 24),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              TextButton.icon(
+                                onPressed: () {
+                                  if (doctor.id.isEmpty) return;
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => ChatPage(
+                                        chatId:
+                                            '${widget.user.id}_${doctor.id}',
+                                        receiverName: doctor.name.isNotEmpty
+                                            ? doctor.name
+                                            : 'Doctor',
+                                        receiverPhoneNumber: doctor.phoneNumber,
+                                      ),
+                                    ),
+                                  );
+                                },
+                                icon: const Icon(Icons.chat_outlined, size: 18),
+                                label: const Text('Chat'),
+                              ),
+                              const SizedBox(width: 8),
+                              ElevatedButton(
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) =>
+                                          DoctorDetailsPage(doctor: doctor),
+                                    ),
+                                  );
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppTheme.primaryColor,
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                                child: const Text('View Profile'),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
-                    );
-                  },
-                );
-              } else if (state is DoctorError) {
-                return Center(child: Text(state.message));
-              }
-              return const SizedBox();
+                    ),
+                  );
+                },
+              );
             },
           ),
         ),

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:doctor_booking_app/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:doctor_booking_app/features/call/presentation/bloc/call_bloc.dart';
-import 'package:doctor_booking_app/features/chat/presentation/bloc/chat_bloc.dart';
+import 'package:doctor_booking_app/features/chat/presentation/bloc/message_bloc.dart';
 import 'package:doctor_booking_app/features/chat/domain/entities/message_entity.dart';
 import 'package:doctor_booking_app/core/theme/app_theme.dart';
 import 'package:intl/intl.dart';
@@ -44,7 +44,7 @@ class _ChatPageState extends State<ChatPage> {
     } else {
       _sortedChatId = widget.chatId;
     }
-    context.read<ChatBloc>().add(LoadMessagesEvent(_sortedChatId));
+    context.read<MessageBloc>().add(LoadMessagesEvent(_sortedChatId));
   }
 
   @override
@@ -87,7 +87,9 @@ class _ChatPageState extends State<ChatPage> {
                   InitiateCallEvent(
                     callerId: caller.id,
                     callerName: caller.name,
-                    receiverId: widget.chatId.split('_').last,
+                    receiverId: widget.chatId
+                        .split('_')
+                        .firstWhere((id) => id != caller.id),
                     receiverName: widget.receiverName,
                   ),
                 );
@@ -115,29 +117,10 @@ class _ChatPageState extends State<ChatPage> {
       ),
       body: MultiBlocListener(
         listeners: [
-          BlocListener<ChatBloc, ChatState>(
+          BlocListener<MessageBloc, MessageState>(
             listener: (context, state) {
-              if (state is MessagesLoaded) {
-                final currentUser =
-                    (context.read<AuthBloc>().state as AuthAuthenticated).user;
-                final hasUnread = state.messages.any(
-                  (m) => m.receiverId == currentUser.id && !m.isRead,
-                );
-                if (hasUnread) {
-                  context.read<ChatBloc>().add(
-                    MarkMessagesAsReadEvent(_sortedChatId, currentUser.id),
-                  );
-                }
-              } else if (state is ChatError) {
-                setState(() => _isSending = false);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(state.message),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-              } else if (state is MessagesLoaded) {
-                if (_isSending) {
+              if (state.status == MessageStatus.loaded) {
+                if (_isSending && !state.isSending) {
                   setState(() => _isSending = false);
                 }
                 final currentUser =
@@ -146,10 +129,36 @@ class _ChatPageState extends State<ChatPage> {
                   (m) => m.receiverId == currentUser.id && !m.isRead,
                 );
                 if (hasUnread) {
-                  context.read<ChatBloc>().add(
+                  context.read<MessageBloc>().add(
                     MarkMessagesAsReadEvent(_sortedChatId, currentUser.id),
                   );
                 }
+                // Scroll to bottom when messages load/update
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (_scrollController.hasClients) {
+                    _scrollController.animateTo(
+                      0.0,
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeOut,
+                    );
+                  }
+                });
+              }
+
+              if (state.messageSentSuccessfully) {
+                setState(() => _isSending = false);
+              }
+
+              if (state.status == MessageStatus.error &&
+                  state.errorMessage != null) {
+                setState(() => _isSending = false);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(state.errorMessage!),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+                context.read<MessageBloc>().add(ClearMessageErrorEvent());
               }
             },
           ),
@@ -157,49 +166,51 @@ class _ChatPageState extends State<ChatPage> {
         child: Column(
           children: [
             Expanded(
-              child: BlocBuilder<ChatBloc, ChatState>(
+              child: BlocBuilder<MessageBloc, MessageState>(
                 builder: (context, state) {
-                  if (state is MessagesLoaded) {
-                    return ListView.builder(
-                      controller: _scrollController,
-                      padding: const EdgeInsets.all(16),
-                      reverse: true,
-                      itemCount: state.messages.length,
-                      itemBuilder: (context, index) {
-                        final message = state.messages[index];
-                        final currentUser =
-                            (context.read<AuthBloc>().state
-                                    as AuthAuthenticated)
-                                .user;
-                        final isMe = message.senderId == currentUser.id;
-
-                        // Check if we should show a date separator
-                        bool showDateSeparator = false;
-                        if (index == state.messages.length - 1) {
-                          showDateSeparator = true;
-                        } else {
-                          final prevMessage = state.messages[index + 1];
-                          if (message.timestamp.year !=
-                                  prevMessage.timestamp.year ||
-                              message.timestamp.month !=
-                                  prevMessage.timestamp.month ||
-                              message.timestamp.day !=
-                                  prevMessage.timestamp.day) {
-                            showDateSeparator = true;
-                          }
-                        }
-
-                        return Column(
-                          children: [
-                            if (showDateSeparator)
-                              _buildDateSeparator(message.timestamp),
-                            _buildMessageBubble(message, isMe),
-                          ],
-                        );
-                      },
-                    );
+                  if (state.status == MessageStatus.initial ||
+                      (state.status == MessageStatus.loading &&
+                          state.messages.isEmpty)) {
+                    return const Center(child: CircularProgressIndicator());
                   }
-                  return const Center(child: CircularProgressIndicator());
+
+                  return ListView.builder(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.all(16),
+                    reverse: true,
+                    itemCount: state.messages.length,
+                    itemBuilder: (context, index) {
+                      final message = state.messages[index];
+                      final currentUser =
+                          (context.read<AuthBloc>().state as AuthAuthenticated)
+                              .user;
+                      final isMe = message.senderId == currentUser.id;
+
+                      // Check if we should show a date separator
+                      bool showDateSeparator = false;
+                      if (index == state.messages.length - 1) {
+                        showDateSeparator = true;
+                      } else {
+                        final prevMessage = state.messages[index + 1];
+                        if (message.timestamp.year !=
+                                prevMessage.timestamp.year ||
+                            message.timestamp.month !=
+                                prevMessage.timestamp.month ||
+                            message.timestamp.day !=
+                                prevMessage.timestamp.day) {
+                          showDateSeparator = true;
+                        }
+                      }
+
+                      return Column(
+                        children: [
+                          if (showDateSeparator)
+                            _buildDateSeparator(message.timestamp),
+                          _buildMessageBubble(message, isMe),
+                        ],
+                      );
+                    },
+                  );
                 },
               ),
             ),
@@ -371,7 +382,9 @@ class _ChatPageState extends State<ChatPage> {
                           timestamp: DateTime.now(),
                         );
 
-                        context.read<ChatBloc>().add(SendMessageEvent(message));
+                        context.read<MessageBloc>().add(
+                          SendMessageEvent(message),
+                        );
                         _controller.clear();
                       }
                     },

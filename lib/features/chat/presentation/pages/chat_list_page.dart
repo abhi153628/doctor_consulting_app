@@ -27,10 +27,21 @@ class _ChatListPageState extends State<ChatListPage> {
     return Scaffold(
       body: BlocBuilder<ChatBloc, ChatState>(
         builder: (context, state) {
-          if (state is ChatsLoaded) {
-            if (state.chats.isEmpty) {
-              return _buildEmptyState();
-            }
+          if (state.status == ChatStatus.loading && state.chats.isEmpty) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (state.chats.isEmpty && state.status == ChatStatus.loaded) {
+            return _buildEmptyState();
+          }
+
+          if (state.status == ChatStatus.error) {
+            return Center(
+              child: Text(state.errorMessage ?? 'An error occurred'),
+            );
+          }
+
+          if (state.chats.isNotEmpty) {
             return ListView.separated(
               itemCount: state.chats.length,
               separatorBuilder: (context, index) => const Divider(height: 1),
@@ -40,12 +51,7 @@ class _ChatListPageState extends State<ChatListPage> {
               },
             );
           }
-          if (state is ChatLoading) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (state is ChatError) {
-            return Center(child: Text(state.message));
-          }
+
           return _buildEmptyState();
         },
       ),
@@ -60,12 +66,11 @@ class _ChatListPageState extends State<ChatListPage> {
 
     final isUnread =
         !lastMessage.isRead && lastMessage.receiverId == currentUser.id;
-    // Determine receiver name (the other person)
-    // In a real app, we'd fetch the user profile.
-    // For now, we'll try to guess or use "Participant"
-    final receiverName = lastMessage.senderId == currentUser.id
-        ? 'Patient' // Placeholder, ideally fetch from participants
-        : 'Doctor'; // Placeholder
+
+    // In a professional app, we'd have participant names in the chat doc.
+    // For now, we'll infer based on the role.
+    final bool isUserDoctor = currentUser.role == 'doctor';
+    final receiverName = isUserDoctor ? 'Patient' : 'Doctor';
 
     return ListTile(
       onTap: () {
@@ -75,58 +80,78 @@ class _ChatListPageState extends State<ChatListPage> {
             builder: (_) =>
                 ChatPage(chatId: chat.id, receiverName: receiverName),
           ),
-        ).then((_) {
-          // Refresh chats when coming back (to update unread status)
-          context.read<ChatBloc>().add(GetChatsEvent(currentUser.id));
-        });
+        );
       },
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       leading: CircleAvatar(
+        radius: 28,
         backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
-        child: Icon(Icons.person, color: AppTheme.primaryColor),
+        child: Icon(Icons.person, color: AppTheme.primaryColor, size: 30),
       ),
-      title: Text(
-        receiverName,
-        style: TextStyle(
-          fontWeight: isUnread ? FontWeight.bold : FontWeight.normal,
-        ),
-      ),
-      subtitle: Text(
-        lastMessage.content,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          fontWeight: isUnread ? FontWeight.w600 : FontWeight.normal,
-          color: isUnread ? Colors.black87 : Colors.grey,
-        ),
-      ),
-      trailing: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.end,
+      title: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
-            DateFormat('hh:mm a').format(lastMessage.timestamp),
+            receiverName,
+            style: TextStyle(
+              fontWeight: isUnread ? FontWeight.bold : FontWeight.w600,
+              fontSize: 16,
+            ),
+          ),
+          Text(
+            _formatTimestamp(lastMessage.timestamp),
             style: TextStyle(
               fontSize: 12,
               color: isUnread ? AppTheme.primaryColor : Colors.grey,
+              fontWeight: isUnread ? FontWeight.bold : FontWeight.normal,
             ),
           ),
-          if (isUnread) ...[
-            const SizedBox(height: 4),
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: AppTheme.primaryColor,
-                shape: BoxShape.circle,
-              ),
-              child: const Text(
-                '', // Or count if we had it
-                style: TextStyle(color: Colors.white, fontSize: 10),
-              ),
-            ),
-          ],
         ],
       ),
+      subtitle: Padding(
+        padding: const EdgeInsets.only(top: 4),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                lastMessage.content,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontWeight: isUnread ? FontWeight.w600 : FontWeight.normal,
+                  color: isUnread ? Colors.black87 : Colors.grey[600],
+                  fontSize: 14,
+                ),
+              ),
+            ),
+            if (isUnread)
+              Container(
+                margin: const EdgeInsets.only(left: 8),
+                width: 10,
+                height: 10,
+                decoration: const BoxDecoration(
+                  color: AppTheme.primaryColor,
+                  shape: BoxShape.circle,
+                ),
+              ),
+          ],
+        ),
+      ),
     );
+  }
+
+  String _formatTimestamp(DateTime timestamp) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final date = DateTime(timestamp.year, timestamp.month, timestamp.day);
+
+    if (date == today) {
+      return DateFormat('hh:mm a').format(timestamp);
+    } else if (date == today.subtract(const Duration(days: 1))) {
+      return 'Yesterday';
+    } else {
+      return DateFormat('MM/dd/yy').format(timestamp);
+    }
   }
 
   Widget _buildEmptyState() {
@@ -134,11 +159,31 @@ class _ChatListPageState extends State<ChatListPage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.chat_outlined, size: 64, color: Colors.grey[300]),
-          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.chat_bubble_outline,
+              size: 64,
+              color: Colors.grey[400],
+            ),
+          ),
+          const SizedBox(height: 24),
           Text(
-            'No messages yet',
-            style: TextStyle(color: Colors.grey[600], fontSize: 16),
+            'Your messages will appear here',
+            style: TextStyle(
+              color: Colors.grey[800],
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Keep in touch with your ${(context.read<AuthBloc>().state as AuthAuthenticated).user.role == 'doctor' ? 'patients' : 'doctors'}',
+            style: TextStyle(color: Colors.grey[600], fontSize: 14),
           ),
         ],
       ),

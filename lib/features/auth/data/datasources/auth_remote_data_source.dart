@@ -2,9 +2,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:doctor_booking_app/features/auth/domain/entities/user_entity.dart';
 import 'package:doctor_booking_app/features/auth/data/models/user_model.dart';
+import 'package:doctor_booking_app/features/doctor/data/models/doctor_model.dart';
 
 abstract class AuthRemoteDataSource {
-  Future<UserModel> signUp({
+  Future<UserEntity> signUp({
     required String email,
     required String password,
     required String name,
@@ -12,9 +13,9 @@ abstract class AuthRemoteDataSource {
     String? specialization,
     String? phoneNumber,
   });
-  Future<UserModel> login(String email, String password);
+  Future<UserEntity> login(String email, String password);
   Future<void> logout();
-  Future<UserModel?> getCurrentUser();
+  Future<UserEntity?> getCurrentUser();
 }
 
 class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
@@ -27,7 +28,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   });
 
   @override
-  Future<UserModel> signUp({
+  Future<UserEntity> signUp({
     required String email,
     required String password,
     required String name,
@@ -40,57 +41,63 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       password: password,
     );
 
-    final userModel = UserModel(
-      id: credential.user?.uid ?? '',
-      email: email,
-      name: name,
-      role: role,
-      isApproved: role == UserRole.doctor ? true : null,
-      phoneNumber: phoneNumber,
-    );
-
     if (role == UserRole.doctor) {
-      await firestore.collection('doctors').doc(userModel.id).set({
-        ...userModel.toJson(),
-        'specialization': specialization,
-        'isApproved': true,
-        'isOnline': false,
-        'availableTimeSlots': [],
-        'rating': 0.0,
-        'totalConsultations': 0,
-        'phoneNumber': phoneNumber,
-      });
+      final doctorModel = DoctorModel(
+        id: credential.user?.uid ?? '',
+        email: email,
+        name: name,
+        role: role,
+        specialization: specialization ?? '',
+        isApproved: true,
+        isOnline: false,
+        availableTimeSlots: const [],
+        rating: 0.0,
+        totalConsultations: 0,
+        phoneNumber: phoneNumber,
+        consultationFee: 500.0,
+      );
+
+      await firestore
+          .collection('doctors')
+          .doc(doctorModel.id)
+          .set(doctorModel.toJson());
+      return doctorModel;
     } else {
+      final userModel = UserModel(
+        id: credential.user?.uid ?? '',
+        email: email,
+        name: name,
+        role: role,
+        isApproved: null,
+        phoneNumber: phoneNumber,
+      );
+
       await firestore
           .collection('users')
           .doc(userModel.id)
           .set(userModel.toJson());
+      return userModel;
     }
-
-    return userModel;
   }
 
   @override
-  Future<UserModel> login(String email, String password) async {
+  Future<UserEntity> login(String email, String password) async {
     final credential = await firebaseAuth.signInWithEmailAndPassword(
       email: email,
       password: password,
     );
 
-    // Check if doctor or user
     final uid = credential.user?.uid;
     if (uid == null) throw Exception('User authentication failed');
 
     final doctorDoc = await firestore.collection('doctors').doc(uid).get();
-    final doctorData = doctorDoc.data();
-    if (doctorDoc.exists && doctorData != null) {
-      return UserModel.fromJson(doctorData);
+    if (doctorDoc.exists && doctorDoc.data() != null) {
+      return DoctorModel.fromJson(doctorDoc.data()!);
     }
 
     final userDoc = await firestore.collection('users').doc(uid).get();
-    final userData = userDoc.data();
-    if (userDoc.exists && userData != null) {
-      return UserModel.fromJson(userData);
+    if (userDoc.exists && userDoc.data() != null) {
+      return UserModel.fromJson(userDoc.data()!);
     }
 
     throw Exception('User data not found in registration records');
@@ -100,20 +107,18 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   Future<void> logout() => firebaseAuth.signOut();
 
   @override
-  Future<UserModel?> getCurrentUser() async {
+  Future<UserEntity?> getCurrentUser() async {
     final user = firebaseAuth.currentUser;
     if (user == null) return null;
 
     final doctorDoc = await firestore.collection('doctors').doc(user.uid).get();
-    final doctorData = doctorDoc.data();
-    if (doctorDoc.exists && doctorData != null) {
-      return UserModel.fromJson(doctorData);
+    if (doctorDoc.exists && doctorDoc.data() != null) {
+      return DoctorModel.fromJson(doctorDoc.data()!);
     }
 
     final userDoc = await firestore.collection('users').doc(user.uid).get();
-    final userData = userDoc.data();
-    if (userDoc.exists && userData != null) {
-      return UserModel.fromJson(userData);
+    if (userDoc.exists && userDoc.data() != null) {
+      return UserModel.fromJson(userDoc.data()!);
     }
 
     return null;

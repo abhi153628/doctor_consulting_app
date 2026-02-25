@@ -9,6 +9,7 @@ class DoctorEntity extends UserEntity {
   final double rating;
   final int totalConsultations;
   final String? phoneNumber;
+  final double consultationFee;
 
   const DoctorEntity({
     required super.id,
@@ -23,6 +24,7 @@ class DoctorEntity extends UserEntity {
     this.rating = 0.0,
     this.totalConsultations = 0,
     this.phoneNumber,
+    this.consultationFee = 500.0,
   });
 
   @override
@@ -35,5 +37,6 @@ class DoctorEntity extends UserEntity {
     rating,
     totalConsultations,
     phoneNumber,
+    consultationFee,
   ];
 }

@@ -12,13 +12,10 @@ class ChatRepositoryImpl implements ChatRepository {
   ChatRepositoryImpl({required this.remoteDataSource});
 
   @override
-  Future<Either<Failure, List<ChatEntity>>> getChats(String userId) async {
-    try {
-      final chats = await remoteDataSource.getChats(userId);
-      return Right(chats);
-    } catch (e) {
-      return Left(ServerFailure(e.toString()));
-    }
+  Stream<List<ChatEntity>> getChats(String userId) {
+    return remoteDataSource
+        .getChats(userId)
+        .map((list) => list.cast<ChatEntity>().toList());
   }
 
   @override

@@ -20,7 +20,7 @@ class AuthRepositoryImpl implements AuthRepository {
     String? phoneNumber,
   }) async {
     try {
-      final userModel = await remoteDataSource.signUp(
+      final userEntity = await remoteDataSource.signUp(
         email: email,
         password: password,
         name: name,
@@ -28,7 +28,7 @@ class AuthRepositoryImpl implements AuthRepository {
         specialization: specialization,
         phoneNumber: phoneNumber,
       );
-      return Right(userModel);
+      return Right(userEntity);
     } on FirebaseAuthException catch (e) {
       return Left(AuthFailure(_mapFirebaseErrorMessage(e)));
     } catch (e) {
@@ -42,8 +42,8 @@ class AuthRepositoryImpl implements AuthRepository {
     required String password,
   }) async {
     try {
-      final userModel = await remoteDataSource.login(email, password);
-      return Right(userModel);
+      final userEntity = await remoteDataSource.login(email, password);
+      return Right(userEntity);
     } on FirebaseAuthException catch (e) {
       return Left(AuthFailure(_mapFirebaseErrorMessage(e)));
     } catch (e) {
@@ -64,9 +64,9 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<Either<Failure, UserEntity>> getCurrentUser() async {
     try {
-      final userModel = await remoteDataSource.getCurrentUser();
-      if (userModel != null) {
-        return Right(userModel);
+      final userEntity = await remoteDataSource.getCurrentUser();
+      if (userEntity != null) {
+        return Right(userEntity);
       }
       return const Left(AuthFailure('No active session found'));
     } catch (e) {
