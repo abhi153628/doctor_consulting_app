@@ -4,9 +4,9 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class NotificationService {
-  static const String _appId = "f353143e-c9c6-4d34-92ed-a6d32ced1262";
+  static const String _appId = "e6e1a5f3-faa1-465e-ab93-a4b1c9c25daa";
   static const String _restApiKey =
-      "os_v2_app_6njripwjyzgtjexnu3jsz3ismjk4fjhfqpfubaetlheairvoxq7gikafeiekdugt57hww2pidravp63lf6n7k7b7lekgv6dzzmfudpi";
+      "os_v2_app_43q2l472ufdf5k4tusy4tqs5vj6dym2qa7teut4jkwvxuh6lunqlqj76rtpl7bp6cx2ls66qgl4hmbq7fz47bmhhsox65urtpkvegdy";
 
   static Future<void> initialize() async {
     OneSignal.Debug.setLogLevel(OSLogLevel.verbose);

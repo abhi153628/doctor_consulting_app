@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:doctor_booking_app/injection_container.dart' as di;
@@ -8,7 +9,7 @@ import 'package:doctor_booking_app/features/booking/presentation/bloc/booking_bl
 import 'package:doctor_booking_app/features/chat/presentation/bloc/chat_bloc.dart';
 import 'package:doctor_booking_app/features/chat/presentation/bloc/message_bloc.dart';
 import 'package:doctor_booking_app/features/call/presentation/bloc/call_bloc.dart';
-import 'package:doctor_booking_app/features/auth/presentation/pages/login_page.dart';
+import 'package:doctor_booking_app/features/auth/presentation/pages/role_selection_page.dart';
 import 'package:doctor_booking_app/features/doctor/presentation/pages/patient_dashboard.dart';
 import 'package:doctor_booking_app/features/doctor/presentation/pages/doctor_dashboard.dart';
 import 'package:doctor_booking_app/features/admin/presentation/pages/admin_dashboard.dart';
@@ -24,6 +25,13 @@ void main() async {
   await Firebase.initializeApp();
   await NotificationService.initialize();
   await di.init();
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.dark, // Android: dark icons
+      statusBarBrightness: Brightness.light, // iOS: dark text
+    ),
+  );
   runApp(const MyApp());
 }
 
@@ -81,7 +89,7 @@ class MyApp extends StatelessWidget {
               );
             }
 
-            return const LoginPage();
+            return const RoleSelectionPage();
           },
         ),
       ),

@@ -14,116 +14,73 @@ class PatientBookingsPage extends StatefulWidget {
   State<PatientBookingsPage> createState() => _PatientBookingsPageState();
 }
 
-class _PatientBookingsPageState extends State<PatientBookingsPage>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-
+class _PatientBookingsPageState extends State<PatientBookingsPage> {
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
     final user = (context.read<AuthBloc>().state as AuthAuthenticated).user;
     context.read<BookingBloc>().add(GetPatientBookingsEvent(user.id));
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[50],
-      body: Column(
-        children: [
-          Container(
-            color: Colors.white,
-            child: TabBar(
-              controller: _tabController,
-              labelColor: AppTheme.primaryColor,
-              unselectedLabelColor: Colors.grey,
-              indicatorColor: AppTheme.primaryColor,
-              indicatorWeight: 3,
-              labelStyle: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-              ),
-              tabs: const [
-                Tab(text: 'Upcoming'),
-                Tab(text: 'Pending'),
-                Tab(text: 'History'),
-              ],
-            ),
-          ),
-          Expanded(
-            child: BlocBuilder<BookingBloc, BookingState>(
-              builder: (context, state) {
-                if (state is BookingLoading) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (state is BookingError) {
-                  return Center(child: Text(state.message));
-                }
-                if (state is BookingsLoaded) {
-                  final all = state.bookings;
-                  final upcoming = all
-                      .where((b) => b.status == BookingStatus.accepted)
-                      .toList();
-                  final pending = all
-                      .where((b) => b.status == BookingStatus.pending)
-                      .toList();
-                  final history = all
-                      .where(
-                        (b) =>
-                            b.status == BookingStatus.rejected ||
-                            b.status == BookingStatus.completed ||
-                            b.status == BookingStatus.cancelled,
-                      )
-                      .toList();
+      body: BlocBuilder<BookingBloc, BookingState>(
+        builder: (context, state) {
+          if (state is BookingLoading) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (state is BookingError) {
+            return Center(child: Text(state.message));
+          }
+          if (state is BookingsLoaded) {
+            // Show accepted (confirmed) bookings — the "upcoming" ones
+            final bookings =
+                state.bookings
+                    .where(
+                      (b) =>
+                          b.status == BookingStatus.accepted ||
+                          b.status == BookingStatus.pending,
+                    )
+                    .toList()
+                  ..sort((a, b) => a.startTime.compareTo(b.startTime));
 
-                  return TabBarView(
-                    controller: _tabController,
-                    children: [
-                      _buildList(
-                        upcoming,
-                        emptyMsg: 'No upcoming appointments',
-                      ),
-                      _buildList(pending, emptyMsg: 'No pending requests'),
-                      _buildList(history, emptyMsg: 'No past appointments'),
-                    ],
-                  );
-                }
-                return const SizedBox();
-              },
-            ),
-          ),
-        ],
+            if (bookings.isEmpty) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.event_note_outlined,
+                      size: 64,
+                      color: Colors.grey[300],
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'No upcoming appointments',
+                      style: TextStyle(color: Colors.grey[500], fontSize: 15),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Book a doctor to get started',
+                      style: TextStyle(color: Colors.grey[400], fontSize: 13),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            return ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: bookings.length,
+              itemBuilder: (context, index) =>
+                  _buildBookingCard(bookings[index]),
+            );
+          }
+          return const SizedBox();
+        },
       ),
-    );
-  }
-
-  Widget _buildList(List<BookingEntity> bookings, {required String emptyMsg}) {
-    if (bookings.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.event_note_outlined, size: 56, color: Colors.grey[300]),
-            const SizedBox(height: 12),
-            Text(
-              emptyMsg,
-              style: TextStyle(color: Colors.grey[500], fontSize: 15),
-            ),
-          ],
-        ),
-      );
-    }
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: bookings.length,
-      itemBuilder: (context, index) => _buildBookingCard(bookings[index]),
     );
   }
 
@@ -152,7 +109,6 @@ class _PatientBookingsPageState extends State<PatientBookingsPage>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header Row
             Row(
               children: [
                 CircleAvatar(
@@ -210,11 +166,7 @@ class _PatientBookingsPageState extends State<PatientBookingsPage>
               Row(
                 children: [
                   Expanded(
-                    child: _buildActionButton(
-                      icon: Icons.chat_bubble_outline_rounded,
-                      label: 'Chat',
-                      color: AppTheme.primaryColor,
-                      outlined: true,
+                    child: OutlinedButton.icon(
                       onPressed: () {
                         Navigator.push(
                           context,
@@ -226,18 +178,39 @@ class _PatientBookingsPageState extends State<PatientBookingsPage>
                           ),
                         );
                       },
+                      icon: const Icon(
+                        Icons.chat_bubble_outline_rounded,
+                        size: 16,
+                      ),
+                      label: const Text('Chat', style: TextStyle(fontSize: 13)),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.primaryColor,
+                        side: const BorderSide(color: AppTheme.primaryColor),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: _buildActionButton(
-                      icon: Icons.videocam_rounded,
-                      label: 'Start Call',
-                      color: AppTheme.primaryColor,
-                      outlined: false,
-                      onPressed: () {
-                        // TODO: video call
-                      },
+                    child: ElevatedButton.icon(
+                      onPressed: () {},
+                      icon: const Icon(Icons.videocam_rounded, size: 16),
+                      label: const Text(
+                        'Start Call',
+                        style: TextStyle(fontSize: 13),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryColor,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -245,42 +218,6 @@ class _PatientBookingsPageState extends State<PatientBookingsPage>
             ],
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildActionButton({
-    required IconData icon,
-    required String label,
-    required Color color,
-    required bool outlined,
-    required VoidCallback onPressed,
-  }) {
-    if (outlined) {
-      return OutlinedButton.icon(
-        onPressed: onPressed,
-        icon: Icon(icon, size: 16),
-        label: Text(label, style: const TextStyle(fontSize: 13)),
-        style: OutlinedButton.styleFrom(
-          foregroundColor: color,
-          side: BorderSide(color: color),
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-        ),
-      );
-    }
-    return ElevatedButton.icon(
-      onPressed: onPressed,
-      icon: Icon(icon, size: 16),
-      label: Text(label, style: const TextStyle(fontSize: 13)),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: color,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
     );
   }
